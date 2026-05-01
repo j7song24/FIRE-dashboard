@@ -1227,8 +1227,8 @@ function calcTaxes(w2person1, w2person2, total401k, sideIncome, sideIncomeType) 
 function calcFIRE(p) {
   const housing = calcMonthlyHousing(p.homeValue, p.downPct, p.mortgageRate, p.hoa);
   const monthlyOwnership = housing.total;
-  const total401k = p.contrib401k * 2;
-  const totalIRA = p.contribIRA * 2;
+  const base401k = p.contrib401k * 2;
+  const baseIRA = p.contribIRA * 2;
   const matchRate = p.employerMatch / 100;
   const salaryG = p.salaryGrowth / 100;
   const inflationR = p.inflation / 100;
@@ -1284,6 +1284,12 @@ function calcFIRE(p) {
     const annualOtherY = p.otherMonthly * 12 * Math.pow(1 + inflationR, y);
     const annualExpenses = annualHousingY + kidsCost + annualOtherY;
 
+    // IRS limits grow with inflation (rounded to nearest $500 like real IRS adjustments)
+    const inflFactor = Math.pow(1 + inflationR, y);
+    const total401kY = Math.round(base401k * inflFactor / 1000) * 1000;
+    const totalIRAY = Math.round(baseIRA * inflFactor / 1000) * 1000;
+    const contrib401kY = total401kY / 2;
+
     if (!retired) {
       const growthFactor = Math.pow(1 + salaryG, y);
       cash1Y = p.cash1 * growthFactor;
@@ -1298,14 +1304,14 @@ function calcFIRE(p) {
       const w2_2 = cash2Y + rsu2;
       grossIncome = w2_1 + w2_2 + sideIncomeY;
 
-      taxes = calcTaxes(w2_1, w2_2, total401k, sideIncomeY, p.sideIncomeType);
-      takeHome = grossIncome - taxes.total - total401k - totalIRA;
+      taxes = calcTaxes(w2_1, w2_2, total401kY, sideIncomeY, p.sideIncomeType);
+      takeHome = grossIncome - taxes.total - total401kY - totalIRAY;
       discretionarySavings = takeHome - annualExpenses;
 
-      const match1 = Math.min(cash1Y * matchRate, p.contrib401k);
-      const match2 = Math.min(cash2Y * matchRate, p.contrib401k);
+      const match1 = Math.min(cash1Y * matchRate, contrib401kY);
+      const match2 = Math.min(cash2Y * matchRate, contrib401kY);
       totalMatch = match1 + match2;
-      totalInvested = discretionarySavings + total401k + totalIRA + totalMatch;
+      totalInvested = discretionarySavings + total401kY + totalIRAY + totalMatch;
 
       if (y > 0) {
         portfolio = portfolio * (1 + realReturn) + totalInvested;
@@ -1337,6 +1343,8 @@ function calcFIRE(p) {
       discretionarySavings,
       totalInvested,
       totalMatch,
+      total401k: total401kY,
+      totalIRA: totalIRAY,
     });
 
     // Dynamic FIRE check: portfolio must cover the FIRE number for this specific year
@@ -1356,8 +1364,8 @@ function calcFIRE(p) {
     fireAge2: fireYear !== null ? p.age2 + fireYear : null,
     depletionAge,
     y0,
-    total401k,
-    totalIRA,
+    total401k: base401k,
+    totalIRA: baseIRA,
     annualHealthcare,
     maxYears,
     fireNumberAtYear,
@@ -1645,8 +1653,8 @@ function updateDashboard() {
   // Budget donut
   const monthlyTax = vy.taxes.total / 12;
   const monthlyCashSavings = Math.max(0, vy.discretionarySavings / 12);
-  const monthly401k = r.total401k / 12;
-  const monthlyIRA = r.totalIRA / 12;
+  const monthly401k = vy.total401k / 12;
+  const monthlyIRA = vy.totalIRA / 12;
   const monthlyMatch = vy.totalMatch / 12;
   const bLabels = ['Housing', 'Taxes', 'Cash Savings', '401k', 'IRA'];
   const bData = [vy.monthlyHousing, monthlyTax, monthlyCashSavings, monthly401k, monthlyIRA];
@@ -1679,8 +1687,8 @@ function updateDashboard() {
     { label: 'Federal Tax', value: -vy.taxes.federal, color: c.target },
     { label: 'CA State Tax', value: -vy.taxes.state, color: c.target },
     { label: 'FICA', value: -vy.taxes.fica, color: c.target },
-    { label: '401k Contributions', value: -r.total401k, color: c.accent },
-    { label: 'IRA Contributions', value: -r.totalIRA, color: c.accent },
+    { label: '401k Contributions', value: -vy.total401k, color: c.accent },
+    { label: 'IRA Contributions', value: -vy.totalIRA, color: c.accent },
   ];
   if (vy.sideIncome > 0) rows.splice(3, 0, { label: 'Side Income', value: vy.sideIncome, color: c.green });
   if (vy.taxes.seTax > 0) rows.push({ label: 'SE Tax', value: -vy.taxes.seTax, color: c.target });
