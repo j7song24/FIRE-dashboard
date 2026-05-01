@@ -317,6 +317,46 @@ body::before {
   border: none;
 }
 
+.info-tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--border);
+  color: var(--text-muted);
+  font-size: 0.55rem;
+  font-weight: 700;
+  font-style: normal;
+  margin-left: 6px;
+  cursor: help;
+  position: relative;
+  vertical-align: middle;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.info-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.info-tip:hover::after { opacity: 1; }
+
 .section-chevron {
   font-size: 0.6rem;
   color: var(--text-muted);
@@ -449,6 +489,35 @@ select { cursor: pointer; }
   font-size: 0.78rem;
   color: var(--text-muted);
 }
+
+.fire-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  cursor: pointer;
+  font-size: 0.76rem;
+}
+.fire-toggle input { display: none; }
+.toggle-track {
+  width: 36px;
+  height: 20px;
+  background: var(--border);
+  border-radius: 10px;
+  position: relative;
+  transition: background 0.2s;
+}
+.toggle-thumb {
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 16px; height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+.fire-toggle input:checked ~ .toggle-track { background: var(--accent); }
+.fire-toggle input:checked ~ .toggle-track .toggle-thumb { transform: translateX(16px); }
+.toggle-label { color: var(--text-secondary); font-weight: 500; }
 
 /* ── KPI Cards ─────────────────────────────────────────── */
 .kpi-grid {
@@ -667,7 +736,7 @@ select { cursor: pointer; }
     <!-- Personal -->
     <div class="section" id="sec-personal">
       <div class="section-header" onclick="toggleSection('sec-personal')">
-        <span class="section-title">Personal</span>
+        <span class="section-title">Personal<span class="info-tip" data-tip="Your current ages and total invested savings (all accounts combined)">i</span></span>
         <span class="section-chevron">&#9660;</span>
       </div>
       <div class="section-body">
@@ -691,7 +760,7 @@ select { cursor: pointer; }
     <!-- Your Income -->
     <div class="section" id="sec-income1">
       <div class="section-header" onclick="toggleSection('sec-income1')">
-        <span class="section-title">Income &mdash; You</span>
+        <span class="section-title">Income &mdash; You<span class="info-tip" data-tip="Annual base salary (cash) and RSU grant value. RSUs vest over 4 years with 1-year cliff.">i</span></span>
         <span class="section-chevron">&#9660;</span>
       </div>
       <div class="section-body">
@@ -715,7 +784,7 @@ select { cursor: pointer; }
     <!-- Partner Income -->
     <div class="section" id="sec-income2">
       <div class="section-header" onclick="toggleSection('sec-income2')">
-        <span class="section-title">Income &mdash; Partner</span>
+        <span class="section-title">Income &mdash; Partner<span class="info-tip" data-tip="Partner's annual base salary and RSU grant. Same vesting schedule applies.">i</span></span>
         <span class="section-chevron">&#9660;</span>
       </div>
       <div class="section-body">
@@ -739,37 +808,40 @@ select { cursor: pointer; }
     <!-- Housing -->
     <div class="section" id="sec-housing">
       <div class="section-header" onclick="toggleSection('sec-housing')">
-        <span class="section-title">Housing</span>
+        <span class="section-title">Housing<span class="info-tip" data-tip="Current rent until you buy; then mortgage details. Use Rent Forever if not planning to buy.">i</span></span>
         <span class="section-chevron">&#9660;</span>
       </div>
       <div class="section-body">
-        <div class="input-row">
-          <div class="input-group">
-            <label class="input-label">Current Monthly Rent</label>
-            <input type="text" id="monthlyRent" value="3,500" data-money>
-          </div>
+        <div class="input-group">
+          <label class="input-label">Current Monthly Rent</label>
+          <input type="text" id="monthlyRent" value="3,500" data-money>
+        </div>
+        <div class="input-group">
+          <label class="input-label" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="rentForever" style="width:auto"> Rent forever (don't buy)</label>
+        </div>
+        <div id="buyInputs">
           <div class="input-group">
             <label class="input-label">Age When Buying</label>
             <input type="number" id="houseBuyAge" value="35" step="1" min="25" max="60">
           </div>
-        </div>
-        <div class="input-row">
-          <div class="input-group">
-            <label class="input-label">Home Value</label>
-            <input type="text" id="homeValue" value="1,500,000" data-money>
+          <div class="input-row">
+            <div class="input-group">
+              <label class="input-label">Home Value</label>
+              <input type="text" id="homeValue" value="1,500,000" data-money>
+            </div>
+            <div class="input-group">
+              <label class="input-label">Monthly HOA</label>
+              <input type="text" id="hoa" value="400" data-money>
+            </div>
           </div>
           <div class="input-group">
-            <label class="input-label">Monthly HOA</label>
-            <input type="text" id="hoa" value="400" data-money>
+            <label class="input-label">Down Payment <span class="input-value" id="v-downPct">20%</span></label>
+            <input type="range" id="downPct" min="5" max="50" value="20" step="1">
           </div>
-        </div>
-        <div class="input-group">
-          <label class="input-label">Down Payment <span class="input-value" id="v-downPct">20%</span></label>
-          <input type="range" id="downPct" min="5" max="50" value="20" step="1">
-        </div>
-        <div class="input-group">
-          <label class="input-label">Interest Rate <span class="input-value" id="v-rate">6.5%</span></label>
-          <input type="range" id="mortgageRate" min="3" max="9" value="6.5" step="0.25">
+          <div class="input-group">
+            <label class="input-label">Interest Rate <span class="input-value" id="v-rate">6.5%</span></label>
+            <input type="range" id="mortgageRate" min="3" max="9" value="6.5" step="0.25">
+          </div>
         </div>
         <div class="calc-display" id="housingCalc"></div>
       </div>
@@ -778,7 +850,7 @@ select { cursor: pointer; }
     <!-- Kids -->
     <div class="section" id="sec-kids">
       <div class="section-header" onclick="toggleSection('sec-kids')">
-        <span class="section-title">Kids</span>
+        <span class="section-title">Kids<span class="info-tip" data-tip="Age when first child is born. Costs vary by school type and age tier (daycare, K-12, university).">i</span></span>
         <span class="section-chevron">&#9660;</span>
       </div>
       <div class="section-body">
@@ -811,7 +883,7 @@ select { cursor: pointer; }
     <!-- Other Expenses -->
     <div class="section" id="sec-other">
       <div class="section-header" onclick="toggleSection('sec-other')">
-        <span class="section-title">Other Expenses</span>
+        <span class="section-title">Other Expenses<span class="info-tip" data-tip="Monthly non-housing, non-kids spending (food, transport, entertainment, etc.)">i</span></span>
         <span class="section-chevron">&#9660;</span>
       </div>
       <div class="section-body">
@@ -825,7 +897,7 @@ select { cursor: pointer; }
     <!-- Investment -->
     <div class="section" id="sec-invest">
       <div class="section-header" onclick="toggleSection('sec-invest')">
-        <span class="section-title">Investment Assumptions</span>
+        <span class="section-title">Investment Assumptions<span class="info-tip" data-tip="Retirement contributions, expected returns, and FIRE parameters">i</span></span>
         <span class="section-chevron">&#9660;</span>
       </div>
       <div class="section-body">
@@ -865,6 +937,14 @@ select { cursor: pointer; }
             <input type="range" id="inflation" min="1" max="6" value="3" step="0.5">
           </div>
         </div>
+        <div class="input-group">
+          <label class="input-label">Post-FIRE Healthcare</label>
+          <input type="text" id="healthcareCost" value="2,500" data-money>
+        </div>
+        <div class="input-group">
+          <label class="input-label">Withdrawal Tax Rate <span class="input-value" id="v-withdrawalTax">20%</span></label>
+          <input type="range" id="withdrawalTax" min="10" max="35" value="20" step="1">
+        </div>
       </div>
     </div>
   </aside>
@@ -879,6 +959,7 @@ select { cursor: pointer; }
     <div class="results-header">
       <h2>Your FIRE Outlook</h2>
       <span class="subtitle">Real-time projections</span>
+      <label class="fire-toggle"><input type="checkbox" id="quitAtFire"><span class="toggle-track"><span class="toggle-thumb"></span></span><span class="toggle-label" id="toggleLabel">Stay Working</span></label>
     </div>
 
     <div class="kpi-grid">
@@ -895,7 +976,7 @@ select { cursor: pointer; }
       <div class="kpi-card">
         <div class="kpi-label">FIRE Number</div>
         <div class="kpi-value" id="kpi-fireNumber">&mdash;</div>
-        <div class="kpi-sub">Post-kids baseline</div>
+        <div class="kpi-sub">Peak expenses + healthcare + tax</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Savings Rate</div>
@@ -958,7 +1039,7 @@ select { cursor: pointer; }
         <li>Mortgage is 30-year fixed; property tax 1.1%; insurance 0.35% of home value</li>
         <li>Kid costs vary by age: daycare (0-4), K-12, university (18-21), done at 22</li>
         <li>Kids spaced 2.5 years apart from first-kid age</li>
-        <li>FIRE number based on post-kid baseline expenses (housing + other only)</li>
+        <li>FIRE number covers peak annual expenses (including kids + healthcare), grossed up for withdrawal taxes</li>
         <li>Portfolio growth uses real (inflation-adjusted) return</li>
       </ul>
     </div>
@@ -1100,53 +1181,85 @@ function calcTaxes(w2person1, w2person2, total401k) {
 function calcFIRE(p) {
   const housing = calcMonthlyHousing(p.homeValue, p.downPct, p.mortgageRate, p.hoa);
   const monthlyOwnership = housing.total;
-  // FIRE number based on post-purchase (long-term) expenses at today's dollars
-  const baselineExpenses = monthlyOwnership * 12 + p.otherMonthly * 12;
-  const fireNumber = baselineExpenses / (p.swr / 100);
-
   const total401k = p.contrib401k * 2;
   const totalIRA = p.contribIRA * 2;
   const matchRate = p.employerMatch / 100;
   const salaryG = p.salaryGrowth / 100;
   const inflationR = p.inflation / 100;
   const realReturn = (1 + p.annualReturn / 100) / (1 + inflationR) - 1;
+  const withdrawalTaxRate = (p.withdrawalTax || 20) / 100;
+  const annualHealthcare = (p.healthcareCost || 0) * 12;
   const maxYears = 60;
+  const quitAtFire = p.quitAtFire || false;
+
+  // First pass: compute annual expenses for all years to find peak
+  const expensesByYear = [];
+  for (let y = 0; y <= maxYears; y++) {
+    const ownsHome = (p.age1 + y) >= p.houseBuyAge;
+    const monthlyHousingY = ownsHome ? monthlyOwnership : p.monthlyRent;
+    const annualHousingY = monthlyHousingY * 12;
+    const kidsCost = calcKidsCostForYear(y, p.age1, p.numKids, p.firstKidAge, p.schoolType, p.daycareCost);
+    const annualOtherY = p.otherMonthly * 12 * Math.pow(1 + inflationR, y);
+    expensesByYear.push(annualHousingY + kidsCost + annualOtherY);
+  }
+  const peakExpenses = Math.max(...expensesByYear);
+  // FIRE number: covers peak expenses + healthcare, grossed up for withdrawal taxes
+  const fireNumber = (peakExpenses + annualHealthcare) / (p.swr / 100) / (1 - withdrawalTaxRate);
 
   const yearData = [];
   let portfolio = p.currentSavings;
   let fireYear = null;
+  let depletionAge = null;
 
   for (let y = 0; y <= maxYears; y++) {
     const ownsHome = (p.age1 + y) >= p.houseBuyAge;
     const monthlyHousingY = ownsHome ? monthlyOwnership : p.monthlyRent;
     const annualHousingY = monthlyHousingY * 12;
 
-    const growthFactor = Math.pow(1 + salaryG, y);
-    const cash1Y = p.cash1 * growthFactor;
-    const cash2Y = p.cash2 * growthFactor;
-    const rsuGrant1Y = p.rsu1 * growthFactor;
-    const rsuGrant2Y = p.rsu2 * growthFactor;
+    const retired = quitAtFire && fireYear !== null && y > fireYear;
 
-    const rsu1 = calcRSUIncomeForYear(y, rsuGrant1Y, p.yrsAtCo1, p.stockGrowth);
-    const rsu2 = calcRSUIncomeForYear(y, rsuGrant2Y, p.yrsAtCo2, p.stockGrowth);
-    const w2_1 = cash1Y + rsu1;
-    const w2_2 = cash2Y + rsu2;
-    const grossIncome = w2_1 + w2_2;
+    let grossIncome = 0, cash1Y = 0, cash2Y = 0, rsu1 = 0, rsu2 = 0;
+    let taxes = { federal: 0, state: 0, fica: 0, total: 0, agi: 0 };
+    let totalMatch = 0, totalInvested = 0, discretionarySavings = 0, takeHome = 0;
 
-    const taxes = calcTaxes(w2_1, w2_2, total401k);
     const kidsCost = calcKidsCostForYear(y, p.age1, p.numKids, p.firstKidAge, p.schoolType, p.daycareCost);
     const annualOtherY = p.otherMonthly * 12 * Math.pow(1 + inflationR, y);
     const annualExpenses = annualHousingY + kidsCost + annualOtherY;
-    const takeHome = grossIncome - taxes.total - total401k - totalIRA;
-    const discretionarySavings = takeHome - annualExpenses;
 
-    const match1 = Math.min(cash1Y * matchRate, p.contrib401k);
-    const match2 = Math.min(cash2Y * matchRate, p.contrib401k);
-    const totalMatch = match1 + match2;
-    const totalInvested = discretionarySavings + total401k + totalIRA + totalMatch;
+    if (!retired) {
+      const growthFactor = Math.pow(1 + salaryG, y);
+      cash1Y = p.cash1 * growthFactor;
+      cash2Y = p.cash2 * growthFactor;
+      const rsuGrant1Y = p.rsu1 * growthFactor;
+      const rsuGrant2Y = p.rsu2 * growthFactor;
 
-    if (y > 0) {
-      portfolio = portfolio * (1 + realReturn) + totalInvested;
+      rsu1 = calcRSUIncomeForYear(y, rsuGrant1Y, p.yrsAtCo1, p.stockGrowth);
+      rsu2 = calcRSUIncomeForYear(y, rsuGrant2Y, p.yrsAtCo2, p.stockGrowth);
+      const w2_1 = cash1Y + rsu1;
+      const w2_2 = cash2Y + rsu2;
+      grossIncome = w2_1 + w2_2;
+
+      taxes = calcTaxes(w2_1, w2_2, total401k);
+      takeHome = grossIncome - taxes.total - total401k - totalIRA;
+      discretionarySavings = takeHome - annualExpenses;
+
+      const match1 = Math.min(cash1Y * matchRate, p.contrib401k);
+      const match2 = Math.min(cash2Y * matchRate, p.contrib401k);
+      totalMatch = match1 + match2;
+      totalInvested = discretionarySavings + total401k + totalIRA + totalMatch;
+
+      if (y > 0) {
+        portfolio = portfolio * (1 + realReturn) + totalInvested;
+      }
+    } else {
+      // Retired: no income, withdraw from portfolio to cover expenses + healthcare
+      const withdrawal = (annualExpenses + annualHealthcare) / (1 - withdrawalTaxRate);
+      portfolio = portfolio * (1 + realReturn) - withdrawal;
+      if (portfolio <= 0 && depletionAge === null) {
+        depletionAge = p.age1 + y;
+        portfolio = 0;
+      }
+      totalInvested = -withdrawal;
     }
 
     yearData.push({
@@ -1161,6 +1274,7 @@ function calcFIRE(p) {
       annualOther: annualOtherY,
       monthlyHousing: monthlyHousingY,
       ownsHome,
+      retired,
       takeHome,
       discretionarySavings,
       totalInvested,
@@ -1180,10 +1294,12 @@ function calcFIRE(p) {
     fireYear,
     fireAge1: fireYear !== null ? p.age1 + fireYear : null,
     fireAge2: fireYear !== null ? p.age2 + fireYear : null,
+    depletionAge,
     y0,
     total401k,
     totalIRA,
-    baselineExpenses,
+    peakExpenses,
+    annualHealthcare,
     maxYears,
   };
 }
@@ -1302,7 +1418,8 @@ function readParams() {
     rsu2:        readMoney('rsu2'),
     yrsAtCo2:    +document.getElementById('yrsAtCo2').value,
     monthlyRent: readMoney('monthlyRent'),
-    houseBuyAge: +document.getElementById('houseBuyAge').value,
+    rentForever: document.getElementById('rentForever').checked,
+    houseBuyAge: document.getElementById('rentForever').checked ? 999 : +document.getElementById('houseBuyAge').value,
     homeValue:   readMoney('homeValue'),
     downPct:     +document.getElementById('downPct').value,
     mortgageRate:+document.getElementById('mortgageRate').value,
@@ -1320,6 +1437,9 @@ function readParams() {
     annualReturn:+document.getElementById('annualReturn').value,
     swr:         +document.getElementById('swr').value,
     inflation:   +document.getElementById('inflation').value,
+    healthcareCost: readMoney('healthcareCost'),
+    withdrawalTax: +document.getElementById('withdrawalTax').value,
+    quitAtFire: document.getElementById('quitAtFire').checked,
   };
 }
 
@@ -1345,6 +1465,10 @@ function updateDashboard() {
   document.getElementById('v-return').textContent = p.annualReturn + '%';
   document.getElementById('v-swr').textContent = p.swr + '%';
   document.getElementById('v-inflation').textContent = p.inflation + '%';
+  document.getElementById('v-withdrawalTax').textContent = p.withdrawalTax + '%';
+
+  // Rent forever toggle
+  document.getElementById('buyInputs').style.display = p.rentForever ? 'none' : 'block';
 
   // Kids extra section visibility
   document.getElementById('kidsExtra').style.display = p.numKids > 0 ? 'block' : 'none';
@@ -1407,6 +1531,12 @@ function updateDashboard() {
   }
 
   document.getElementById('kpi-fireNumber').textContent = fmtK(r.fireNumber);
+  document.getElementById('toggleLabel').textContent = p.quitAtFire ? 'Quit at FIRE' : 'Stay Working';
+  if (p.quitAtFire && r.depletionAge) {
+    document.getElementById('kpi-fireYears1').textContent += ' | runs out ' + r.depletionAge;
+  } else if (p.quitAtFire && r.fireYear && !r.depletionAge) {
+    document.getElementById('kpi-fireYears1').textContent += ' | sustains!';
+  }
 
   const savingsRate = y0.grossIncome > 0 ? (y0.totalInvested / y0.grossIncome * 100) : 0;
   document.getElementById('kpi-savingsRate').textContent = savingsRate.toFixed(1) + '%';
@@ -1509,10 +1639,10 @@ function updateDashboard() {
    ═══════════════════════════════════════════════════════════ */
 const PARAM_KEYS = [
   'age1','age2','savings','cash1','rsu1','yrsAtCo1','cash2','rsu2','yrsAtCo2',
-  'monthlyRent','houseBuyAge','homeValue','downPct','mortgageRate','hoa',
+  'monthlyRent','rentForever','houseBuyAge','homeValue','downPct','mortgageRate','hoa',
   'numKids','firstKidAge','schoolType','daycareCost','otherExpenses',
   'contrib401k','contribIRA','employerMatch','salaryGrowth','stockGrowth',
-  'annualReturn','swr','inflation'
+  'annualReturn','swr','inflation','healthcareCost','withdrawalTax','quitAtFire'
 ];
 
 const MONEY_IDS = ['savings','cash1','rsu1','cash2','rsu2','monthlyRent','homeValue','hoa','daycareCost','otherExpenses'];
@@ -1522,8 +1652,12 @@ function serializeParams() {
   PARAM_KEYS.forEach(k => {
     const el = document.getElementById(k);
     if (!el) return;
-    const val = el.hasAttribute('data-money') ? el.value.replace(/,/g, '') : el.value;
-    params.set(k, val);
+    if (el.type === 'checkbox') {
+      params.set(k, el.checked);
+    } else {
+      const val = el.hasAttribute('data-money') ? el.value.replace(/,/g, '') : el.value;
+      params.set(k, val);
+    }
   });
   return params;
 }
@@ -1535,7 +1669,9 @@ function loadParamsFromString(qs) {
     const el = document.getElementById(k);
     if (!el) return;
     const val = params.get(k);
-    if (el.hasAttribute('data-money')) {
+    if (el.type === 'checkbox') {
+      el.checked = val === 'true';
+    } else if (el.hasAttribute('data-money')) {
       const num = parseInt(val, 10);
       el.value = isNaN(num) ? val : num.toLocaleString('en-US');
     } else {
@@ -1575,6 +1711,11 @@ function paramsObjectFromString(qs) {
   obj.annualReturn = +(params.get('annualReturn') || 7);
   obj.swr = +(params.get('swr') || 4);
   obj.inflation = +(params.get('inflation') || 3);
+  obj.healthcareCost = +(params.get('healthcareCost') || 2500);
+  obj.withdrawalTax = +(params.get('withdrawalTax') || 20);
+  obj.rentForever = params.get('rentForever') === 'true';
+  obj.quitAtFire = params.get('quitAtFire') === 'true';
+  if (obj.rentForever) obj.houseBuyAge = 999;
   return obj;
 }
 
@@ -1786,6 +1927,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.querySelectorAll('input:not([data-money]), select').forEach(el => {
     el.addEventListener('input', updateDashboard);
+    if (el.type === 'checkbox') el.addEventListener('change', updateDashboard);
   });
   updateDashboard();
   document.getElementById('themeToggle').addEventListener('click', toggleTheme);
