@@ -976,7 +976,7 @@ select { cursor: pointer; }
       <div class="kpi-card">
         <div class="kpi-label">FIRE Number</div>
         <div class="kpi-value" id="kpi-fireNumber">&mdash;</div>
-        <div class="kpi-sub">Peak expenses + healthcare + tax</div>
+        <div class="kpi-sub">Base expenses + PV(kids) + healthcare + tax</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Savings Rate</div>
@@ -1039,7 +1039,7 @@ select { cursor: pointer; }
         <li>Mortgage is 30-year fixed; property tax 1.1%; insurance 0.35% of home value</li>
         <li>Kid costs vary by age: daycare (0-4), K-12, university (18-21), done at 22</li>
         <li>Kids spaced 2.5 years apart from first-kid age</li>
-        <li>FIRE number covers peak annual expenses (including kids + healthcare), grossed up for withdrawal taxes</li>
+        <li>FIRE number = perpetual base expenses (housing + other + healthcare) / SWR / (1 &minus; tax) + PV of remaining kids costs grossed up for taxes</li>
         <li>Portfolio growth uses real (inflation-adjusted) return</li>
       </ul>
     </div>
@@ -1192,23 +1192,35 @@ function calcFIRE(p) {
   const maxYears = 60;
   const quitAtFire = p.quitAtFire || false;
 
-  // First pass: compute annual expenses for all years to find peak
-  const expensesByYear = [];
+  // Pre-compute kids costs for all years (needed for PV of remaining costs)
+  const kidsCostByYear = [];
   for (let y = 0; y <= maxYears; y++) {
+    kidsCostByYear.push(calcKidsCostForYear(y, p.age1, p.numKids, p.firstKidAge, p.schoolType, p.daycareCost));
+  }
+
+  // Dynamic FIRE number for each year: perpetual base expenses + PV of remaining kids costs
+  function fireNumberAtYear(y) {
     const ownsHome = (p.age1 + y) >= p.houseBuyAge;
     const monthlyHousingY = ownsHome ? monthlyOwnership : p.monthlyRent;
-    const annualHousingY = monthlyHousingY * 12;
-    const kidsCost = calcKidsCostForYear(y, p.age1, p.numKids, p.firstKidAge, p.schoolType, p.daycareCost);
-    const annualOtherY = p.otherMonthly * 12 * Math.pow(1 + inflationR, y);
-    expensesByYear.push(annualHousingY + kidsCost + annualOtherY);
+    const annualBaseExpenses = monthlyHousingY * 12 + p.otherMonthly * 12 * Math.pow(1 + inflationR, y) + annualHealthcare;
+    // Perpetual portion (housing + other + healthcare)
+    const perpetualPortion = annualBaseExpenses / (p.swr / 100) / (1 - withdrawalTaxRate);
+    // PV of remaining kids costs from year y onward (discounted at real return)
+    let pvKids = 0;
+    for (let f = y; f <= maxYears; f++) {
+      if (kidsCostByYear[f] > 0) {
+        pvKids += kidsCostByYear[f] / Math.pow(1 + realReturn, f - y);
+      }
+    }
+    // Kids lump sum also needs to be grossed up for withdrawal taxes
+    const kidsGrossedUp = pvKids / (1 - withdrawalTaxRate);
+    return perpetualPortion + kidsGrossedUp;
   }
-  const peakExpenses = Math.max(...expensesByYear);
-  // FIRE number: covers peak expenses + healthcare, grossed up for withdrawal taxes
-  const fireNumber = (peakExpenses + annualHealthcare) / (p.swr / 100) / (1 - withdrawalTaxRate);
 
   const yearData = [];
   let portfolio = p.currentSavings;
   let fireYear = null;
+  let fireNumber = fireNumberAtYear(0);
   let depletionAge = null;
 
   for (let y = 0; y <= maxYears; y++) {
@@ -1222,7 +1234,7 @@ function calcFIRE(p) {
     let taxes = { federal: 0, state: 0, fica: 0, total: 0, agi: 0 };
     let totalMatch = 0, totalInvested = 0, discretionarySavings = 0, takeHome = 0;
 
-    const kidsCost = calcKidsCostForYear(y, p.age1, p.numKids, p.firstKidAge, p.schoolType, p.daycareCost);
+    const kidsCost = kidsCostByYear[y];
     const annualOtherY = p.otherMonthly * 12 * Math.pow(1 + inflationR, y);
     const annualExpenses = annualHousingY + kidsCost + annualOtherY;
 
@@ -1252,7 +1264,6 @@ function calcFIRE(p) {
         portfolio = portfolio * (1 + realReturn) + totalInvested;
       }
     } else {
-      // Retired: no income, withdraw from portfolio to cover expenses + healthcare
       const withdrawal = (annualExpenses + annualHealthcare) / (1 - withdrawalTaxRate);
       portfolio = portfolio * (1 + realReturn) - withdrawal;
       if (portfolio <= 0 && depletionAge === null) {
@@ -1281,8 +1292,10 @@ function calcFIRE(p) {
       totalMatch,
     });
 
-    if (fireYear === null && y > 0 && portfolio >= fireNumber) {
+    // Dynamic FIRE check: portfolio must cover the FIRE number for this specific year
+    if (fireYear === null && y > 0 && portfolio >= fireNumberAtYear(y)) {
       fireYear = y;
+      fireNumber = fireNumberAtYear(y);
     }
   }
 
@@ -1298,9 +1311,9 @@ function calcFIRE(p) {
     y0,
     total401k,
     totalIRA,
-    peakExpenses,
     annualHealthcare,
     maxYears,
+    fireNumberAtYear,
   };
 }
 
@@ -1553,7 +1566,7 @@ function updateDashboard() {
   for (let i = 0; i <= showYears; i++) {
     labels.push('Age ' + (p.age1 + i));
     portfolioData.push(r.yearData[i].portfolio);
-    targetData.push(r.fireNumber);
+    targetData.push(r.fireNumberAtYear(i));
   }
   growthChart.data.labels = labels;
   growthChart.data.datasets[0].data = portfolioData;
