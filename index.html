@@ -1731,7 +1731,7 @@ function serializeParams() {
       params.set(k, el.checked);
     } else {
       const val = el.hasAttribute('data-money') ? el.value.replace(/,/g, '') : el.value;
-      params.set(k, val);
+      if (val !== '') params.set(k, val);
     }
   });
   return params;
@@ -1744,11 +1744,12 @@ function loadParamsFromString(qs) {
     const el = document.getElementById(k);
     if (!el) return;
     const val = params.get(k);
+    if (val === '' || val === null) return;
     if (el.type === 'checkbox') {
       el.checked = val === 'true';
     } else if (el.hasAttribute('data-money')) {
-      const num = parseInt(val, 10);
-      el.value = isNaN(num) ? val : num.toLocaleString('en-US');
+      const num = parseFloat(val);
+      el.value = isNaN(num) ? '0' : Math.round(num).toLocaleString('en-US');
     } else {
       el.value = val;
     }
