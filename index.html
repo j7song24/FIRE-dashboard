@@ -344,8 +344,7 @@ body::before {
   content: attr(data-tip);
   position: absolute;
   bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -353,7 +352,9 @@ body::before {
   font-size: 0.72rem;
   font-weight: 400;
   color: var(--text-secondary);
-  white-space: nowrap;
+  white-space: normal;
+  max-width: 220px;
+  width: max-content;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s;
