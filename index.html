@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FIRE Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-display: 'Instrument Serif', Georgia, serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme="dark"] {
+  --bg-primary: #0a0a0f;
+  --bg-secondary: #12121a;
+  --bg-card: #1a1a26;
+  --bg-input: #22222e;
+  --bg-calc: #181824;
+  --border: #2a2a3a;
+  --border-hover: #3a3a4e;
+  --text-primary: #f0ece4;
+  --text-secondary: #8a8698;
+  --text-muted: #5a5670;
+  --accent: #e8a838;
+  --accent-glow: rgba(232,168,56,0.15);
+  --accent-secondary: #c47820;
+  --green: #4ade80;
+  --amber: #fbbf24;
+  --red: #f87171;
+  --purple: #a78bfa;
+  --chart-line: #e8a838;
+  --chart-target: #f87171;
+  --chart-fill: rgba(232,168,56,0.08);
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  --noise: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+}
+
+[data-theme="light"] {
+  --bg-primary: #f5f0e8;
+  --bg-secondary: #ece6da;
+  --bg-card: #ffffff;
+  --bg-input: #f5f0e8;
+  --bg-calc: #f0ebe0;
+  --border: #ddd6c8;
+  --border-hover: #c4bba8;
+  --text-primary: #1a1710;
+  --text-secondary: #6b6358;
+  --text-muted: #9a9186;
+  --accent: #c47820;
+  --accent-glow: rgba(196,120,32,0.1);
+  --accent-secondary: #a06018;
+  --green: #16a34a;
+  --amber: #d97706;
+  --red: #dc2626;
+  --purple: #7c3aed;
+  --chart-line: #c47820;
+  --chart-target: #dc2626;
+  --chart-fill: rgba(196,120,32,0.06);
+  --shadow: 0 4px 24px rgba(0,0,0,0.08);
+  --noise: none;
+}
+
+html { font-size: 15px; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.5;
+  min-height: 100vh;
+  transition: background var(--transition), color var(--transition);
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: var(--noise);
+  background-repeat: repeat;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── Layout ────────────────────────────────────────────── */
+.app {
+  display: grid;
+  grid-template-columns: 400px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  padding: 24px 20px;
+  overflow-y: auto;
+  max-height: 100vh;
+  position: sticky;
+  top: 0;
+}
+
+.main {
+  padding: 28px 32px;
+  overflow-y: auto;
+  position: relative;
+}
+
+/* ── Header ────────────────────────────────────────────── */
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.logo-icon {
+  width: 34px;
+  height: 34px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 2px 12px var(--accent-glow);
+}
+
+.logo h1 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+.logo-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-bottom: 18px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ── Theme Toggle ──────────────────────────────────────── */
+.theme-toggle {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  width: 38px;
+  height: 38px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  color: var(--text-secondary);
+  transition: all var(--transition);
+  z-index: 10;
+}
+.theme-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 16px var(--accent-glow);
+}
+
+/* ── Collapsible Sections ──────────────────────────────── */
+.section { margin-bottom: 6px; }
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+  user-select: none;
+}
+
+.section-header:hover .section-title { color: var(--text-secondary); }
+
+.section-title {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  transition: color var(--transition);
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.section-chevron {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  transition: transform var(--transition);
+}
+
+.section.collapsed .section-chevron { transform: rotate(-90deg); }
+.section.collapsed .section-body { display: none; }
+
+/* ── Input Groups ──────────────────────────────────────── */
+.input-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.input-group { margin-bottom: 8px; }
+
+.input-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+  margin-bottom: 3px;
+  font-weight: 500;
+}
+
+.input-value {
+  font-family: var(--font-body);
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.76rem;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  box-shadow: 0 0 6px var(--accent-glow);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+}
+
+input[type="number"], select {
+  width: 100%;
+  padding: 7px 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  outline: none;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+input[type="number"]:focus, select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+input[type="number"]::-webkit-inner-spin-button { opacity: 0.3; }
+select { cursor: pointer; }
+
+/* ── Calc Display ──────────────────────────────────────── */
+.calc-display {
+  background: var(--bg-calc);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin-top: 6px;
+}
+
+.calc-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  padding: 2px 0;
+  color: var(--text-secondary);
+}
+
+.calc-row.total {
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+  padding-top: 6px;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+
+/* ── Results ───────────────────────────────────────────── */
+.results-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.results-header h2 {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+.results-header .subtitle {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* ── KPI Cards ─────────────────────────────────────────── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.kpi-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  position: relative;
+  overflow: hidden;
+  transition: all var(--transition);
+  animation: cardIn 0.5s ease both;
+}
+
+.kpi-card:nth-child(1) { animation-delay: 0s; }
+.kpi-card:nth-child(2) { animation-delay: 0.04s; }
+.kpi-card:nth-child(3) { animation-delay: 0.08s; }
+.kpi-card:nth-child(4) { animation-delay: 0.12s; }
+.kpi-card:nth-child(5) { animation-delay: 0.16s; }
+.kpi-card:nth-child(6) { animation-delay: 0.2s; }
+
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+
+.kpi-card:hover { border-color: var(--border-hover); }
+.kpi-card:hover::before { opacity: 1; }
+
+.kpi-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+
+.kpi-value {
+  font-family: var(--font-display);
+  font-size: 1.9rem;
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.kpi-sub {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  margin-top: 3px;
+}
+
+.kpi-value.green { color: var(--green); }
+.kpi-value.amber { color: var(--amber); }
+.kpi-value.red { color: var(--red); }
+
+/* ── Charts ────────────────────────────────────────────── */
+.charts-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.chart-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  animation: cardIn 0.6s ease both;
+}
+
+.chart-title {
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+}
+
+.chart-container { position: relative; width: 100%; }
+.chart-container.line { height: 300px; }
+.chart-container.donut { height: 260px; }
+
+/* ── Breakdown ─────────────────────────────────────────── */
+.breakdown-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  animation: cardIn 0.7s ease both;
+}
+
+.breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82rem;
+}
+.breakdown-row:last-child { border-bottom: none; }
+
+.breakdown-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+}
+
+.breakdown-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.breakdown-value {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.breakdown-row.total {
+  border-top: 2px solid var(--border);
+  border-bottom: none;
+  margin-top: 4px;
+  padding-top: 10px;
+  font-weight: 600;
+}
+
+/* ── Assumptions ───────────────────────────────────────── */
+.assumptions {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  margin-top: 16px;
+}
+
+.assumptions h3 {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.assumptions ul { list-style: none; padding: 0; }
+
+.assumptions li {
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+  padding: 2px 0 2px 14px;
+  position: relative;
+}
+
+.assumptions li::before {
+  content: '·';
+  position: absolute;
+  left: 2px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+/* ── Animations ────────────────────────────────────────── */
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Responsive ────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar { position: static; max-height: none; border-right: none; border-bottom: 1px solid var(--border); }
+  .charts-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .sidebar { padding: 16px 12px; }
+  .main { padding: 16px 12px; }
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
+  .input-row { grid-template-columns: 1fr; }
+  html { font-size: 14px; }
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+</style>
+</head>
+
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-icon">F</div>
+      <h1>FIRE Planner</h1>
+    </div>
+    <p class="logo-sub">Financial Independence Calculator</p>
+
+    <!-- Personal -->
+    <div class="section" id="sec-personal">
+      <div class="section-header" onclick="toggleSection('sec-personal')">
+        <span class="section-title">Personal</span>
+        <span class="section-chevron">&#9660;</span>
+      </div>
+      <div class="section-body">
+        <div class="input-row">
+          <div class="input-group">
+            <label class="input-label">Your Age <span class="input-value" id="v-age1">31</span></label>
+            <input type="range" id="age1" min="22" max="60" value="31" step="1">
+          </div>
+          <div class="input-group">
+            <label class="input-label">Partner's Age <span class="input-value" id="v-age2">31</span></label>
+            <input type="range" id="age2" min="22" max="60" value="31" step="1">
+          </div>
+        </div>
+        <div class="input-group">
+          <label class="input-label">Current Savings & Investments</label>
+          <input type="number" id="savings" value="200000" step="10000" min="0">
+        </div>
+      </div>
+    </div>
+
+    <!-- Your Income -->
+    <div class="section" id="sec-income1">
+      <div class="section-header" onclick="toggleSection('sec-income1')">
+        <span class="section-title">Income &mdash; You</span>
+        <span class="section-chevron">&#9660;</span>
+      </div>
+      <div class="section-body">
+        <div class="input-row">
+          <div class="input-group">
+            <label class="input-label">Cash Salary</label>
+            <input type="number" id="cash1" value="150000" step="5000" min="0">
+          </div>
+          <div class="input-group">
+            <label class="input-label">Annual RSU Grant</label>
+            <input type="number" id="rsu1" value="75000" step="5000" min="0">
+          </div>
+        </div>
+        <div class="input-group">
+          <label class="input-label">Years at Company <span class="input-value" id="v-yrs1">4</span></label>
+          <input type="range" id="yrsAtCo1" min="0" max="10" value="4" step="1">
+        </div>
+      </div>
+    </div>
+
+    <!-- Partner Income -->
+    <div class="section" id="sec-income2">
+      <div class="section-header" onclick="toggleSection('sec-income2')">
+        <span class="section-title">Income &mdash; Partner</span>
+        <span class="section-chevron">&#9660;</span>
+      </div>
+      <div class="section-body">
+        <div class="input-row">
+          <div class="input-group">
+            <label class="input-label">Cash Salary</label>
+            <input type="number" id="cash2" value="150000" step="5000" min="0">
+          </div>
+          <div class="input-group">
+            <label class="input-label">Annual RSU Grant</label>
+            <input type="number" id="rsu2" value="75000" step="5000" min="0">
+          </div>
+        </div>
+        <div class="input-group">
+          <label class="input-label">Years at Company <span class="input-value" id="v-yrs2">4</span></label>
+          <input type="range" id="yrsAtCo2" min="0" max="10" value="4" step="1">
+        </div>
+      </div>
+    </div>
+
+    <!-- Housing -->
+    <div class="section" id="sec-housing">
+      <div class="section-header" onclick="toggleSection('sec-housing')">
+        <span class="section-title">Housing</span>
+        <span class="section-chevron">&#9660;</span>
+      </div>
+      <div class="section-body">
+        <div class="input-row">
+          <div class="input-group">
+            <label class="input-label">Current Monthly Rent</label>
+            <input type="number" id="monthlyRent" value="3500" step="100" min="0">
+          </div>
+          <div class="input-group">
+            <label class="input-label">Age When Buying</label>
+            <input type="number" id="houseBuyAge" value="35" step="1" min="25" max="60">
+          </div>
+        </div>
+        <div class="input-row">
+          <div class="input-group">
+            <label class="input-label">Home Value</label>
+            <input type="number" id="homeValue" value="1500000" step="25000" min="0">
+          </div>
+          <div class="input-group">
+            <label class="input-label">Monthly HOA</label>
+            <input type="number" id="hoa" value="400" step="50" min="0">
+          </div>
+        </div>
+        <div class="input-group">
+          <label class="input-label">Down Payment <span class="input-value" id="v-downPct">20%</span></label>
+          <input type="range" id="downPct" min="5" max="50" value="20" step="1">
+        </div>
+        <div class="input-group">
+          <label class="input-label">Interest Rate <span class="input-value" id="v-rate">6.5%</span></label>
+          <input type="range" id="mortgageRate" min="3" max="9" value="6.5" step="0.25">
+        </div>
+        <div class="calc-display" id="housingCalc"></div>
+      </div>
+    </div>
+
+    <!-- Kids -->
+    <div class="section" id="sec-kids">
+      <div class="section-header" onclick="toggleSection('sec-kids')">
+        <span class="section-title">Kids</span>
+        <span class="section-chevron">&#9660;</span>
+      </div>
+      <div class="section-body">
+        <div class="input-group">
+          <label class="input-label">Number of Kids <span class="input-value" id="v-kids">0</span></label>
+          <input type="range" id="numKids" min="0" max="4" value="0" step="1">
+        </div>
+        <div id="kidsExtra" style="display:none">
+          <div class="input-group">
+            <label class="input-label">Your Age at First Kid <span class="input-value" id="v-firstKidAge">33</span></label>
+            <input type="range" id="firstKidAge" min="25" max="45" value="33" step="1">
+          </div>
+          <div class="input-group">
+            <label class="input-label">School Type</label>
+            <select id="schoolType">
+              <option value="public" selected>Public (K-12 & University)</option>
+              <option value="private">Private (K-12 & University)</option>
+              <option value="mixed">Public K-12, Private University</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label class="input-label">Monthly Daycare (ages 0-4)</label>
+            <input type="number" id="daycareCost" value="2500" step="100" min="0">
+          </div>
+          <div class="calc-display" id="kidsCalcDisplay"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Other Expenses -->
+    <div class="section" id="sec-other">
+      <div class="section-header" onclick="toggleSection('sec-other')">
+        <span class="section-title">Other Expenses</span>
+        <span class="section-chevron">&#9660;</span>
+      </div>
+      <div class="section-body">
+        <div class="input-group">
+          <label class="input-label">Monthly Non-Housing Expenses</label>
+          <input type="number" id="otherExpenses" value="4000" step="250" min="0">
+        </div>
+      </div>
+    </div>
+
+    <!-- Investment -->
+    <div class="section" id="sec-invest">
+      <div class="section-header" onclick="toggleSection('sec-invest')">
+        <span class="section-title">Investment Assumptions</span>
+        <span class="section-chevron">&#9660;</span>
+      </div>
+      <div class="section-body">
+        <div class="input-row">
+          <div class="input-group">
+            <label class="input-label">401k / person <span class="input-value" id="v-401k">$23,500</span></label>
+            <input type="range" id="contrib401k" min="0" max="23500" value="23500" step="500">
+          </div>
+          <div class="input-group">
+            <label class="input-label">IRA / person <span class="input-value" id="v-ira">$7,000</span></label>
+            <input type="range" id="contribIRA" min="0" max="7000" value="7000" step="500">
+          </div>
+        </div>
+        <div class="input-group">
+          <label class="input-label">Employer 401k Match <span class="input-value" id="v-match">0%</span></label>
+          <input type="range" id="employerMatch" min="0" max="10" value="0" step="0.5">
+        </div>
+        <div class="input-group">
+          <label class="input-label">Annual Salary Growth <span class="input-value" id="v-salaryGrowth">3%</span></label>
+          <input type="range" id="salaryGrowth" min="0" max="10" value="3" step="0.5">
+        </div>
+        <div class="input-group">
+          <label class="input-label">Stock Growth Rate <span class="input-value" id="v-stockGrowth">10%</span></label>
+          <input type="range" id="stockGrowth" min="0" max="20" value="10" step="1">
+        </div>
+        <div class="input-group">
+          <label class="input-label">Annual Return <span class="input-value" id="v-return">7%</span></label>
+          <input type="range" id="annualReturn" min="4" max="12" value="7" step="0.5">
+        </div>
+        <div class="input-row">
+          <div class="input-group">
+            <label class="input-label">SWR <span class="input-value" id="v-swr">4%</span></label>
+            <input type="range" id="swr" min="3" max="5" value="4" step="0.25">
+          </div>
+          <div class="input-group">
+            <label class="input-label">Inflation <span class="input-value" id="v-inflation">3%</span></label>
+            <input type="range" id="inflation" min="1" max="6" value="3" step="0.5">
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <button class="theme-toggle" id="themeToggle" title="Toggle theme">&#9728;</button>
+
+    <div class="results-header">
+      <h2>Your FIRE Outlook</h2>
+      <span class="subtitle">Real-time projections</span>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Your FIRE Age</div>
+        <div class="kpi-value" id="kpi-fireAge1">&mdash;</div>
+        <div class="kpi-sub" id="kpi-fireYears1"></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Partner's FIRE Age</div>
+        <div class="kpi-value" id="kpi-fireAge2">&mdash;</div>
+        <div class="kpi-sub" id="kpi-fireYears2"></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">FIRE Number</div>
+        <div class="kpi-value" id="kpi-fireNumber">&mdash;</div>
+        <div class="kpi-sub">Post-kids baseline</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Savings Rate</div>
+        <div class="kpi-value" id="kpi-savingsRate">&mdash;</div>
+        <div class="kpi-sub">Year 0 gross</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Year 0 Savings</div>
+        <div class="kpi-value" id="kpi-annualSavings">&mdash;</div>
+        <div class="kpi-sub">Total invested</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Year 0 Taxes</div>
+        <div class="kpi-value" id="kpi-taxes">&mdash;</div>
+        <div class="kpi-sub">Fed + CA + FICA</div>
+      </div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Portfolio Growth Projection</div>
+        <div class="chart-container line"><canvas id="growthChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title" id="budgetTitle">Year 0 Monthly Budget</div>
+        <div class="input-group" style="margin-bottom:10px">
+          <label class="input-label">View Year <span class="input-value" id="v-viewYear">0 (Age 31)</span></label>
+          <input type="range" id="viewYear" min="0" max="40" value="0" step="1">
+        </div>
+        <div class="chart-container donut"><canvas id="budgetChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="breakdown-card">
+      <div class="chart-title" id="breakdownTitle">Year 0 Annual Cash Flow</div>
+      <div id="breakdownRows"></div>
+    </div>
+
+    <div class="assumptions">
+      <h3>Key Assumptions</h3>
+      <ul>
+        <li>Both partners are W-2 employees, filing married jointly</li>
+        <li>RSUs vest on a 4-year schedule with 1-year cliff, sold at vest (ordinary income)</li>
+        <li>Mortgage is 30-year fixed; property tax 1.1%; insurance 0.35% of home value</li>
+        <li>Kid costs vary by age: daycare (0-4), K-12, university (18-21), done at 22</li>
+        <li>Kids spaced 2.5 years apart from first-kid age</li>
+        <li>FIRE number based on post-kid baseline expenses (housing + other only)</li>
+        <li>Portfolio growth uses real (inflation-adjusted) return</li>
+      </ul>
+    </div>
+  </main>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   COLLAPSIBLE SECTIONS
+   ═══════════════════════════════════════════════════════════ */
+function toggleSection(id) {
+  document.getElementById(id).classList.toggle('collapsed');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MORTGAGE CALCULATOR
+   ═══════════════════════════════════════════════════════════ */
+function calcMonthlyHousing(homeValue, downPct, annualRate, hoa) {
+  const loan = homeValue * (1 - downPct / 100);
+  const r = annualRate / 100 / 12;
+  const n = 360;
+  let pi = 0;
+  if (r > 0 && loan > 0) {
+    pi = loan * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+  } else if (loan > 0) {
+    pi = loan / n;
+  }
+  const propTax = homeValue * 0.011 / 12;
+  const insurance = homeValue * 0.0035 / 12;
+  const total = pi + propTax + insurance + hoa;
+  return { loan, pi, propTax, insurance, hoa, total };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   KIDS COST MODEL
+   ═══════════════════════════════════════════════════════════ */
+const KIDS_COST = {
+  public:  { daycare: 2500, k8: 600,  hs: 700,  uni: 3000 },
+  private: { daycare: 2500, k8: 3500, hs: 4000, uni: 6000 },
+  mixed:   { daycare: 2500, k8: 600,  hs: 700,  uni: 6000 },
+};
+
+function kidMonthlyCost(kidAge, schoolType, daycareCost) {
+  if (kidAge < 0 || kidAge >= 22) return 0;
+  const c = KIDS_COST[schoolType] || KIDS_COST.public;
+  if (kidAge < 5) return daycareCost != null ? daycareCost : c.daycare;
+  if (kidAge < 14) return c.k8;
+  if (kidAge < 18) return c.hs;
+  return c.uni;
+}
+
+function calcKidsCostForYear(yearOffset, age1, numKids, firstKidAge, schoolType, daycareCost) {
+  if (numKids <= 0) return 0;
+  let totalMonthly = 0;
+  for (let k = 0; k < numKids; k++) {
+    const parentAgeAtBirth = firstKidAge + k * 2.5;
+    const kidAge = (age1 + yearOffset) - parentAgeAtBirth;
+    totalMonthly += kidMonthlyCost(Math.floor(kidAge), schoolType, daycareCost);
+  }
+  return totalMonthly * 12;
+}
+
+function kidAgeTier(age) {
+  if (age < 0) return 'not born';
+  if (age < 5) return 'daycare';
+  if (age < 14) return 'K-8';
+  if (age < 18) return 'high school';
+  if (age < 22) return 'university';
+  return 'done';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RSU VESTING MODEL
+   ═══════════════════════════════════════════════════════════ */
+function calcRSUIncomeForYear(yearOffset, annualGrant, yearsAtCompany, stockGrowth) {
+  if (annualGrant <= 0) return 0;
+  const g = stockGrowth / 100;
+  let vestedTotal = 0;
+  const totalYearsEmployed = yearsAtCompany + yearOffset;
+  for (let grantYear = 0; grantYear <= totalYearsEmployed; grantYear++) {
+    for (let vestYear = 1; vestYear <= 4; vestYear++) {
+      const calendarVestYear = grantYear + vestYear;
+      if (calendarVestYear === totalYearsEmployed) {
+        const yearsHeld = vestYear;
+        vestedTotal += (annualGrant * 0.25) * Math.pow(1 + g, yearsHeld);
+      }
+    }
+  }
+  return vestedTotal;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TAX ENGINE — 2025 brackets, MFJ
+   ═══════════════════════════════════════════════════════════ */
+const FEDERAL_BRACKETS = [
+  [23200, 0.10], [94300, 0.12], [201050, 0.22], [383900, 0.24],
+  [487450, 0.32], [731200, 0.35], [Infinity, 0.37]
+];
+
+const CA_BRACKETS = [
+  [21340, 0.01], [50594, 0.02], [79858, 0.04], [110766, 0.06],
+  [140530, 0.08], [359022, 0.093], [430826, 0.103], [717536, 0.113],
+  [1000000, 0.123], [Infinity, 0.133]
+];
+
+const SS_WAGE_BASE = 168600;
+const STANDARD_DEDUCTION = 30000;
+
+function bracketTax(income, brackets) {
+  let tax = 0, prev = 0;
+  for (const [lim, rate] of brackets) {
+    if (income <= prev) break;
+    tax += (Math.min(income, lim) - prev) * rate;
+    prev = lim;
+  }
+  return tax;
+}
+
+function calcTaxes(w2person1, w2person2, total401k) {
+  const agi = w2person1 + w2person2 - total401k;
+  const taxableIncome = Math.max(0, agi - STANDARD_DEDUCTION);
+  const federal = bracketTax(taxableIncome, FEDERAL_BRACKETS);
+  const state = bracketTax(agi, CA_BRACKETS);
+  let fica = 0;
+  for (const w of [w2person1, w2person2]) {
+    fica += Math.min(w, SS_WAGE_BASE) * 0.062;
+    fica += w * 0.0145;
+  }
+  const combined = w2person1 + w2person2;
+  if (combined > 250000) fica += (combined - 250000) * 0.009;
+  return { federal, state, fica, total: federal + state + fica, agi };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FIRE PROJECTION — Per-year simulation
+   ═══════════════════════════════════════════════════════════ */
+function calcFIRE(p) {
+  const housing = calcMonthlyHousing(p.homeValue, p.downPct, p.mortgageRate, p.hoa);
+  const monthlyOwnership = housing.total;
+  // FIRE number based on post-purchase (long-term) expenses at today's dollars
+  const baselineExpenses = monthlyOwnership * 12 + p.otherMonthly * 12;
+  const fireNumber = baselineExpenses / (p.swr / 100);
+
+  const total401k = p.contrib401k * 2;
+  const totalIRA = p.contribIRA * 2;
+  const matchRate = p.employerMatch / 100;
+  const salaryG = p.salaryGrowth / 100;
+  const inflationR = p.inflation / 100;
+  const realReturn = (1 + p.annualReturn / 100) / (1 + inflationR) - 1;
+  const maxYears = 60;
+
+  const yearData = [];
+  let portfolio = p.currentSavings;
+  let fireYear = null;
+
+  for (let y = 0; y <= maxYears; y++) {
+    const ownsHome = (p.age1 + y) >= p.houseBuyAge;
+    const monthlyHousingY = ownsHome ? monthlyOwnership : p.monthlyRent;
+    const annualHousingY = monthlyHousingY * 12;
+
+    const growthFactor = Math.pow(1 + salaryG, y);
+    const cash1Y = p.cash1 * growthFactor;
+    const cash2Y = p.cash2 * growthFactor;
+    const rsuGrant1Y = p.rsu1 * growthFactor;
+    const rsuGrant2Y = p.rsu2 * growthFactor;
+
+    const rsu1 = calcRSUIncomeForYear(y, rsuGrant1Y, p.yrsAtCo1, p.stockGrowth);
+    const rsu2 = calcRSUIncomeForYear(y, rsuGrant2Y, p.yrsAtCo2, p.stockGrowth);
+    const w2_1 = cash1Y + rsu1;
+    const w2_2 = cash2Y + rsu2;
+    const grossIncome = w2_1 + w2_2;
+
+    const taxes = calcTaxes(w2_1, w2_2, total401k);
+    const kidsCost = calcKidsCostForYear(y, p.age1, p.numKids, p.firstKidAge, p.schoolType, p.daycareCost);
+    const annualOtherY = p.otherMonthly * 12 * Math.pow(1 + inflationR, y);
+    const annualExpenses = annualHousingY + kidsCost + annualOtherY;
+    const takeHome = grossIncome - taxes.total - total401k - totalIRA;
+    const discretionarySavings = takeHome - annualExpenses;
+
+    const match1 = Math.min(cash1Y * matchRate, p.contrib401k);
+    const match2 = Math.min(cash2Y * matchRate, p.contrib401k);
+    const totalMatch = match1 + match2;
+    const totalInvested = discretionarySavings + total401k + totalIRA + totalMatch;
+
+    if (y > 0) {
+      portfolio = portfolio * (1 + realReturn) + totalInvested;
+    }
+
+    yearData.push({
+      year: y,
+      portfolio,
+      grossIncome,
+      cash1: cash1Y, cash2: cash2Y,
+      rsu1, rsu2,
+      taxes,
+      annualExpenses,
+      kidsCost,
+      annualOther: annualOtherY,
+      monthlyHousing: monthlyHousingY,
+      ownsHome,
+      takeHome,
+      discretionarySavings,
+      totalInvested,
+      totalMatch,
+    });
+
+    if (fireYear === null && y > 0 && portfolio >= fireNumber) {
+      fireYear = y;
+    }
+  }
+
+  const y0 = yearData[0];
+  return {
+    yearData,
+    housing,
+    fireNumber,
+    fireYear,
+    fireAge1: fireYear !== null ? p.age1 + fireYear : null,
+    fireAge2: fireYear !== null ? p.age2 + fireYear : null,
+    y0,
+    total401k,
+    totalIRA,
+    baselineExpenses,
+    maxYears,
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FORMATTING
+   ═══════════════════════════════════════════════════════════ */
+const fmt = n => '$' + Math.round(n).toLocaleString('en-US');
+const fmtK = n => {
+  if (Math.abs(n) >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
+  if (Math.abs(n) >= 1e3) return '$' + Math.round(n / 1e3).toLocaleString('en-US') + 'K';
+  return fmt(n);
+};
+
+/* ═══════════════════════════════════════════════════════════
+   CHARTS
+   ═══════════════════════════════════════════════════════════ */
+let growthChart = null;
+let budgetChart = null;
+
+function cc() {
+  const s = getComputedStyle(document.documentElement);
+  const g = k => s.getPropertyValue(k).trim();
+  return {
+    line: g('--chart-line'), target: g('--chart-target'), fill: g('--chart-fill'),
+    text: g('--text-secondary'), muted: g('--text-muted'), border: g('--border'),
+    green: g('--green'), amber: g('--amber'), accent: g('--accent'), purple: g('--purple'),
+  };
+}
+
+function initCharts() {
+  const c = cc();
+  Chart.defaults.font.family = "'DM Sans', system-ui, sans-serif";
+  Chart.defaults.font.size = 11;
+  Chart.defaults.color = c.text;
+
+  growthChart = new Chart(document.getElementById('growthChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        { label: 'Portfolio', data: [], borderColor: c.line, backgroundColor: c.fill, fill: true, tension: 0.3, pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: c.line, borderWidth: 2.5 },
+        { label: 'FIRE Target', data: [], borderColor: c.target, borderDash: [6,4], borderWidth: 1.5, pointRadius: 0, fill: false },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, position: 'top', align: 'end', labels: { boxWidth: 12, boxHeight: 2, padding: 14 } },
+        tooltip: { backgroundColor: 'rgba(10,10,15,0.9)', titleColor: '#f0ece4', bodyColor: '#f0ece4', borderColor: c.line, borderWidth: 1, padding: 10, callbacks: { label: ctx => ctx.dataset.label + ': ' + fmtK(ctx.parsed.y) } },
+      },
+      scales: {
+        x: { grid: { color: c.border }, ticks: { maxTicksLimit: 10 } },
+        y: { grid: { color: c.border }, ticks: { callback: v => fmtK(v), maxTicksLimit: 6 } },
+      }
+    }
+  });
+
+  const centerTextPlugin = {
+    id: 'centerText',
+    afterDraw(chart) {
+      const { ctx, chartArea: { left, right, top, bottom } } = chart;
+      const total = chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+      const cx = (left + right) / 2;
+      const cy = (top + bottom) / 2;
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 1.3rem DM Sans, sans-serif';
+      ctx.fillText(fmt(total) + '/mo', cx, cy);
+      ctx.restore();
+    }
+  };
+  budgetChart = new Chart(document.getElementById('budgetChart').getContext('2d'), {
+    type: 'doughnut',
+    data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderWidth: 0, hoverOffset: 8 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '62%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { backgroundColor: 'rgba(10,10,15,0.9)', titleColor: '#f0ece4', bodyColor: '#f0ece4', padding: 10, callbacks: { label: ctx => ctx.label + ': ' + fmt(ctx.parsed) + '/mo' } },
+      }
+    },
+    plugins: [centerTextPlugin]
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   UPDATE DASHBOARD
+   ═══════════════════════════════════════════════════════════ */
+function readParams() {
+  return {
+    age1:        +document.getElementById('age1').value,
+    age2:        +document.getElementById('age2').value,
+    currentSavings: +document.getElementById('savings').value,
+    cash1:       +document.getElementById('cash1').value,
+    rsu1:        +document.getElementById('rsu1').value,
+    yrsAtCo1:    +document.getElementById('yrsAtCo1').value,
+    cash2:       +document.getElementById('cash2').value,
+    rsu2:        +document.getElementById('rsu2').value,
+    yrsAtCo2:    +document.getElementById('yrsAtCo2').value,
+    monthlyRent: +document.getElementById('monthlyRent').value,
+    houseBuyAge: +document.getElementById('houseBuyAge').value,
+    homeValue:   +document.getElementById('homeValue').value,
+    downPct:     +document.getElementById('downPct').value,
+    mortgageRate:+document.getElementById('mortgageRate').value,
+    hoa:         +document.getElementById('hoa').value,
+    numKids:     +document.getElementById('numKids').value,
+    firstKidAge: +document.getElementById('firstKidAge').value,
+    schoolType:  document.getElementById('schoolType').value,
+    daycareCost: +document.getElementById('daycareCost').value,
+    otherMonthly:+document.getElementById('otherExpenses').value,
+    contrib401k: +document.getElementById('contrib401k').value,
+    contribIRA:  +document.getElementById('contribIRA').value,
+    employerMatch:+document.getElementById('employerMatch').value,
+    salaryGrowth:+document.getElementById('salaryGrowth').value,
+    stockGrowth: +document.getElementById('stockGrowth').value,
+    annualReturn:+document.getElementById('annualReturn').value,
+    swr:         +document.getElementById('swr').value,
+    inflation:   +document.getElementById('inflation').value,
+  };
+}
+
+function updateDashboard() {
+  const p = readParams();
+  const r = calcFIRE(p);
+  const c = cc();
+
+  // Slider display values
+  document.getElementById('v-age1').textContent = p.age1;
+  document.getElementById('v-age2').textContent = p.age2;
+  document.getElementById('v-yrs1').textContent = p.yrsAtCo1;
+  document.getElementById('v-yrs2').textContent = p.yrsAtCo2;
+  document.getElementById('v-downPct').textContent = p.downPct + '%';
+  document.getElementById('v-rate').textContent = p.mortgageRate + '%';
+  document.getElementById('v-kids').textContent = p.numKids;
+  document.getElementById('v-firstKidAge').textContent = p.firstKidAge;
+  document.getElementById('v-401k').textContent = fmt(p.contrib401k);
+  document.getElementById('v-ira').textContent = fmt(p.contribIRA);
+  document.getElementById('v-match').textContent = p.employerMatch + '%';
+  document.getElementById('v-salaryGrowth').textContent = p.salaryGrowth + '%';
+  document.getElementById('v-stockGrowth').textContent = p.stockGrowth + '%';
+  document.getElementById('v-return').textContent = p.annualReturn + '%';
+  document.getElementById('v-swr').textContent = p.swr + '%';
+  document.getElementById('v-inflation').textContent = p.inflation + '%';
+
+  // Kids extra section visibility
+  document.getElementById('kidsExtra').style.display = p.numKids > 0 ? 'block' : 'none';
+
+  // Housing calc display (follows viewYear slider)
+  const hvYear = Math.min(+document.getElementById('viewYear').value, r.maxYears);
+  const hvOwns = r.yearData[hvYear].ownsHome;
+  const h = r.housing;
+  if (hvOwns) {
+    document.getElementById('housingCalc').innerHTML =
+      `<div class="calc-row"><span>Loan Amount</span><span>${fmt(h.loan)}</span></div>` +
+      `<div class="calc-row"><span>Monthly P&I</span><span>${fmt(h.pi)}</span></div>` +
+      `<div class="calc-row"><span>Property Tax (1.1%)</span><span>${fmt(h.propTax)}</span></div>` +
+      `<div class="calc-row"><span>Insurance (0.35%)</span><span>${fmt(h.insurance)}</span></div>` +
+      `<div class="calc-row"><span>HOA</span><span>${fmt(h.hoa)}</span></div>` +
+      `<div class="calc-row total"><span>Total Monthly (Yr ${hvYear})</span><span>${fmt(h.total)}</span></div>`;
+  } else {
+    document.getElementById('housingCalc').innerHTML =
+      `<div class="calc-row"><span>Renting until age ${p.houseBuyAge}</span><span></span></div>` +
+      `<div class="calc-row total"><span>Monthly Rent (Yr ${hvYear})</span><span>${fmt(p.monthlyRent)}</span></div>`;
+  }
+
+  // Kids calc display (follows viewYear slider)
+  if (p.numKids > 0) {
+    const kvYear = Math.min(+document.getElementById('viewYear').value, r.maxYears);
+    let kidsHtml = '';
+    for (let k = 0; k < p.numKids; k++) {
+      const parentAgeAtBirth = p.firstKidAge + k * 2.5;
+      const kidAge = (p.age1 + kvYear) - parentAgeAtBirth;
+      const tier = kidAgeTier(Math.floor(kidAge));
+      const cost = kidMonthlyCost(Math.floor(kidAge), p.schoolType, p.daycareCost);
+      const label = kidAge < 0 ? `Kid ${k+1}: born in ${Math.ceil(-kidAge)}yr` : `Kid ${k+1}: age ${Math.floor(kidAge)} (${tier})`;
+      kidsHtml += `<div class="calc-row"><span>${label}</span><span>${fmt(cost)}/mo</span></div>`;
+    }
+    const totalKidsMonthly = r.yearData[kvYear].kidsCost / 12;
+    kidsHtml += `<div class="calc-row total"><span>Total Kids (Yr ${kvYear})</span><span>${fmt(totalKidsMonthly)}/mo</span></div>`;
+    document.getElementById('kidsCalcDisplay').innerHTML = kidsHtml;
+  }
+
+  // KPI cards
+  const y0 = r.y0;
+  const kpiAge1 = document.getElementById('kpi-fireAge1');
+  const kpiAge2 = document.getElementById('kpi-fireAge2');
+
+  if (r.fireAge1 !== null) {
+    kpiAge1.textContent = r.fireAge1;
+    document.getElementById('kpi-fireYears1').textContent = r.fireYear + ' years';
+    kpiAge2.textContent = r.fireAge2;
+    document.getElementById('kpi-fireYears2').textContent = r.fireYear + ' years';
+    const cls = r.fireYear <= 15 ? 'green' : r.fireYear <= 20 ? 'amber' : 'red';
+    kpiAge1.className = 'kpi-value ' + cls;
+    kpiAge2.className = 'kpi-value ' + cls;
+  } else {
+    kpiAge1.textContent = '60+';
+    kpiAge1.className = 'kpi-value red';
+    document.getElementById('kpi-fireYears1').textContent = 'Not reachable';
+    kpiAge2.textContent = '60+';
+    kpiAge2.className = 'kpi-value red';
+    document.getElementById('kpi-fireYears2').textContent = 'Not reachable';
+  }
+
+  document.getElementById('kpi-fireNumber').textContent = fmtK(r.fireNumber);
+
+  const savingsRate = y0.grossIncome > 0 ? (y0.totalInvested / y0.grossIncome * 100) : 0;
+  document.getElementById('kpi-savingsRate').textContent = savingsRate.toFixed(1) + '%';
+
+  const savingsEl = document.getElementById('kpi-annualSavings');
+  savingsEl.textContent = fmtK(y0.totalInvested);
+  savingsEl.className = 'kpi-value ' + (y0.totalInvested > 0 ? 'green' : 'red');
+
+  document.getElementById('kpi-taxes').textContent = fmtK(y0.taxes.total);
+
+  // Growth chart
+  const showYears = Math.min(r.maxYears, Math.max(r.fireYear ? r.fireYear + 10 : 40, 25));
+  const labels = [], portfolioData = [], targetData = [];
+  for (let i = 0; i <= showYears; i++) {
+    labels.push('Age ' + (p.age1 + i));
+    portfolioData.push(r.yearData[i].portfolio);
+    targetData.push(r.fireNumber);
+  }
+  growthChart.data.labels = labels;
+  growthChart.data.datasets[0].data = portfolioData;
+  growthChart.data.datasets[0].borderColor = c.line;
+  growthChart.data.datasets[0].backgroundColor = c.fill;
+  growthChart.data.datasets[0].pointHoverBackgroundColor = c.line;
+  growthChart.data.datasets[1].data = targetData;
+  growthChart.data.datasets[1].borderColor = c.target;
+  growthChart.options.scales.x.grid.color = c.border;
+  growthChart.options.scales.y.grid.color = c.border;
+  growthChart.options.scales.x.ticks.color = c.text;
+  growthChart.options.scales.y.ticks.color = c.text;
+  growthChart.options.plugins.legend.labels.color = c.text;
+  growthChart.options.plugins.tooltip.borderColor = c.line;
+  growthChart.update('none');
+
+  // Selected year for donut + breakdown
+  const viewYear = Math.min(+document.getElementById('viewYear').value, r.maxYears);
+  const vy = r.yearData[viewYear];
+  const vyLabel = `Year ${viewYear} (Age ${p.age1 + viewYear})`;
+  document.getElementById('v-viewYear').textContent = `${viewYear} (Age ${p.age1 + viewYear})`;
+  document.getElementById('budgetTitle').textContent = vyLabel + ' Monthly Budget';
+  document.getElementById('breakdownTitle').textContent = vyLabel + ' Annual Cash Flow';
+
+  // Budget donut
+  const monthlyTax = vy.taxes.total / 12;
+  const monthlyCashSavings = Math.max(0, vy.discretionarySavings / 12);
+  const monthly401k = r.total401k / 12;
+  const monthlyIRA = r.totalIRA / 12;
+  const monthlyMatch = vy.totalMatch / 12;
+  const bLabels = ['Housing', 'Taxes', 'Cash Savings', '401k', 'IRA'];
+  const bData = [vy.monthlyHousing, monthlyTax, monthlyCashSavings, monthly401k, monthlyIRA];
+  const bColors = [c.amber, c.target, c.green, '#4ade80', '#86efac'];
+  if (monthlyMatch > 0) {
+    bLabels.push('Match');
+    bData.push(monthlyMatch);
+    bColors.push('#bbf7d0');
+  }
+  if (p.numKids > 0 && vy.kidsCost > 0) {
+    bLabels.push('Kids');
+    bData.push(vy.kidsCost / 12);
+    bColors.push(c.purple);
+  }
+  bLabels.push('Other');
+  bData.push(vy.annualOther / 12);
+  bColors.push(c.accent);
+
+  budgetChart.data.labels = bLabels;
+  budgetChart.data.datasets[0].data = bData;
+  budgetChart.data.datasets[0].backgroundColor = bColors;
+  budgetChart.update('none');
+
+  // Breakdown table
+  const el = document.getElementById('breakdownRows');
+  const rows = [
+    { label: 'Cash Salaries', value: vy.cash1 + vy.cash2, color: c.green },
+    { label: 'RSU Vesting (You)', value: vy.rsu1, color: c.green },
+    { label: 'RSU Vesting (Partner)', value: vy.rsu2, color: c.green },
+    { label: 'Federal Tax', value: -vy.taxes.federal, color: c.target },
+    { label: 'CA State Tax', value: -vy.taxes.state, color: c.target },
+    { label: 'FICA', value: -vy.taxes.fica, color: c.target },
+    { label: '401k Contributions', value: -r.total401k, color: c.accent },
+    { label: 'IRA Contributions', value: -r.totalIRA, color: c.accent },
+  ];
+  if (vy.totalMatch > 0) rows.push({ label: 'Employer Match', value: vy.totalMatch, color: c.green });
+  rows.push({ label: vy.ownsHome ? 'Housing (mortgage+tax+ins+HOA)' : 'Housing (rent)', value: -vy.monthlyHousing * 12, color: c.amber });
+  if (p.numKids > 0 && vy.kidsCost > 0) rows.push({ label: `Kids (${p.numKids})`, value: -vy.kidsCost, color: c.purple });
+  rows.push({ label: 'Other Expenses', value: -vy.annualOther, color: c.muted });
+  rows.push({ label: 'Net Savings', value: vy.totalInvested, color: vy.totalInvested >= 0 ? c.green : c.target, isTotal: true });
+
+  el.innerHTML = rows.map(row => {
+    const cls = row.isTotal ? ' total' : '';
+    const sign = row.value >= 0 ? '+' : '';
+    return `<div class="breakdown-row${cls}"><span class="breakdown-label"><span class="breakdown-dot" style="background:${row.color}"></span>${row.label}</span><span class="breakdown-value">${sign}${fmt(row.value)}</span></div>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   THEME
+   ═══════════════════════════════════════════════════════════ */
+function setTheme(t) {
+  document.documentElement.dataset.theme = t;
+  document.getElementById('themeToggle').innerHTML = t === 'dark' ? '&#9728;' : '&#9790;';
+  try { localStorage.setItem('fire-theme', t); } catch(e) {}
+}
+
+function toggleTheme() {
+  setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+  updateDashboard();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  try { const s = localStorage.getItem('fire-theme'); if (s) setTheme(s); } catch(e) {}
+  initCharts();
+  updateDashboard();
+  document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+  document.querySelectorAll('input, select').forEach(el => el.addEventListener('input', updateDashboard));
+});
+</script>
+</body>
+</html>
