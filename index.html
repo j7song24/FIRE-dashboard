@@ -805,6 +805,33 @@ select { cursor: pointer; }
       </div>
     </div>
 
+    <!-- Side Income -->
+    <div class="section" id="sec-side-income">
+      <div class="section-header" onclick="toggleSection('sec-side-income')">
+        <span class="section-title">Side Income<span class="info-tip" data-tip="Net annual profit from non-W2 sources. Active (freelance/business) = self-employment tax applies. Passive (rental/Airbnb) = no SE tax.">i</span></span>
+        <span class="section-chevron">&#9660;</span>
+      </div>
+      <div class="section-body">
+        <div class="input-row">
+          <div class="input-group">
+            <label class="input-label">Annual Net Profit</label>
+            <input type="text" id="sideIncome" value="0" data-money>
+          </div>
+          <div class="input-group">
+            <label class="input-label">Income Type</label>
+            <select id="sideIncomeType">
+              <option value="active">Active (business)</option>
+              <option value="passive">Passive (rental)</option>
+            </select>
+          </div>
+        </div>
+        <div class="input-group">
+          <label class="input-label">Annual Growth % <span class="input-value" id="v-sideGrowth">3</span></label>
+          <input type="range" id="sideIncomeGrowth" min="0" max="15" value="3" step="0.5">
+        </div>
+      </div>
+    </div>
+
     <!-- Housing -->
     <div class="section" id="sec-housing">
       <div class="section-header" onclick="toggleSection('sec-housing')">
@@ -1160,8 +1187,19 @@ function bracketTax(income, brackets) {
   return tax;
 }
 
-function calcTaxes(w2person1, w2person2, total401k) {
-  const agi = w2person1 + w2person2 - total401k;
+function calcTaxes(w2person1, w2person2, total401k, sideIncome, sideIncomeType) {
+  sideIncome = sideIncome || 0;
+  sideIncomeType = sideIncomeType || 'active';
+
+  // SE tax: 92.35% of net SE earnings × 15.3% (Social Security 12.4% + Medicare 2.9%)
+  let seTax = 0;
+  let seDeduction = 0;
+  if (sideIncomeType === 'active' && sideIncome > 0) {
+    seTax = sideIncome * 0.9235 * 0.153;
+    seDeduction = seTax / 2; // deductible half of SE tax
+  }
+
+  const agi = w2person1 + w2person2 + sideIncome - total401k - seDeduction;
   const taxableIncome = Math.max(0, agi - STANDARD_DEDUCTION);
   const federal = bracketTax(taxableIncome, FEDERAL_BRACKETS);
   const state = bracketTax(agi, CA_BRACKETS);
@@ -1172,7 +1210,8 @@ function calcTaxes(w2person1, w2person2, total401k) {
   }
   const combined = w2person1 + w2person2;
   if (combined > 250000) fica += (combined - 250000) * 0.009;
-  return { federal, state, fica, total: federal + state + fica, agi };
+  const total = federal + state + fica + seTax;
+  return { federal, state, fica, seTax, total, agi };
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1230,8 +1269,8 @@ function calcFIRE(p) {
 
     const retired = quitAtFire && fireYear !== null && y > fireYear;
 
-    let grossIncome = 0, cash1Y = 0, cash2Y = 0, rsu1 = 0, rsu2 = 0;
-    let taxes = { federal: 0, state: 0, fica: 0, total: 0, agi: 0 };
+    let grossIncome = 0, cash1Y = 0, cash2Y = 0, rsu1 = 0, rsu2 = 0, sideIncomeY = 0;
+    let taxes = { federal: 0, state: 0, fica: 0, seTax: 0, total: 0, agi: 0 };
     let totalMatch = 0, totalInvested = 0, discretionarySavings = 0, takeHome = 0;
 
     const kidsCost = kidsCostByYear[y];
@@ -1247,11 +1286,12 @@ function calcFIRE(p) {
 
       rsu1 = calcRSUIncomeForYear(y, rsuGrant1Y, p.yrsAtCo1, p.stockGrowth);
       rsu2 = calcRSUIncomeForYear(y, rsuGrant2Y, p.yrsAtCo2, p.stockGrowth);
+      sideIncomeY = p.sideIncome * Math.pow(1 + (p.sideIncomeGrowth || 0) / 100, y);
       const w2_1 = cash1Y + rsu1;
       const w2_2 = cash2Y + rsu2;
-      grossIncome = w2_1 + w2_2;
+      grossIncome = w2_1 + w2_2 + sideIncomeY;
 
-      taxes = calcTaxes(w2_1, w2_2, total401k);
+      taxes = calcTaxes(w2_1, w2_2, total401k, sideIncomeY, p.sideIncomeType);
       takeHome = grossIncome - taxes.total - total401k - totalIRA;
       discretionarySavings = takeHome - annualExpenses;
 
@@ -1278,7 +1318,7 @@ function calcFIRE(p) {
       portfolio,
       grossIncome,
       cash1: cash1Y, cash2: cash2Y,
-      rsu1, rsu2,
+      rsu1, rsu2, sideIncome: sideIncomeY,
       taxes,
       annualExpenses,
       kidsCost,
@@ -1430,6 +1470,9 @@ function readParams() {
     cash2:       readMoney('cash2'),
     rsu2:        readMoney('rsu2'),
     yrsAtCo2:    +document.getElementById('yrsAtCo2').value,
+    sideIncome:  readMoney('sideIncome'),
+    sideIncomeType: document.getElementById('sideIncomeType').value,
+    sideIncomeGrowth: +document.getElementById('sideIncomeGrowth').value,
     monthlyRent: readMoney('monthlyRent'),
     rentForever: document.getElementById('rentForever').checked,
     houseBuyAge: document.getElementById('rentForever').checked ? 999 : +document.getElementById('houseBuyAge').value,
@@ -1466,6 +1509,7 @@ function updateDashboard() {
   document.getElementById('v-age2').textContent = p.age2;
   document.getElementById('v-yrs1').textContent = p.yrsAtCo1;
   document.getElementById('v-yrs2').textContent = p.yrsAtCo2;
+  document.getElementById('v-sideGrowth').textContent = p.sideIncomeGrowth + '%';
   document.getElementById('v-downPct').textContent = p.downPct + '%';
   document.getElementById('v-rate').textContent = p.mortgageRate + '%';
   document.getElementById('v-kids').textContent = p.numKids;
@@ -1631,6 +1675,8 @@ function updateDashboard() {
     { label: '401k Contributions', value: -r.total401k, color: c.accent },
     { label: 'IRA Contributions', value: -r.totalIRA, color: c.accent },
   ];
+  if (vy.sideIncome > 0) rows.splice(3, 0, { label: 'Side Income', value: vy.sideIncome, color: c.green });
+  if (vy.taxes.seTax > 0) rows.push({ label: 'SE Tax', value: -vy.taxes.seTax, color: c.target });
   if (vy.totalMatch > 0) rows.push({ label: 'Employer Match', value: vy.totalMatch, color: c.green });
   rows.push({ label: vy.ownsHome ? 'Housing (mortgage+tax+ins+HOA)' : 'Housing (rent)', value: -vy.monthlyHousing * 12, color: c.amber });
   if (p.numKids > 0 && vy.kidsCost > 0) rows.push({ label: `Kids (${p.numKids})`, value: -vy.kidsCost, color: c.purple });
@@ -1652,13 +1698,14 @@ function updateDashboard() {
    ═══════════════════════════════════════════════════════════ */
 const PARAM_KEYS = [
   'age1','age2','savings','cash1','rsu1','yrsAtCo1','cash2','rsu2','yrsAtCo2',
+  'sideIncome','sideIncomeType','sideIncomeGrowth',
   'monthlyRent','rentForever','houseBuyAge','homeValue','downPct','mortgageRate','hoa',
   'numKids','firstKidAge','schoolType','daycareCost','otherExpenses',
   'contrib401k','contribIRA','employerMatch','salaryGrowth','stockGrowth',
   'annualReturn','swr','inflation','healthcareCost','withdrawalTax','quitAtFire'
 ];
 
-const MONEY_IDS = ['savings','cash1','rsu1','cash2','rsu2','monthlyRent','homeValue','hoa','daycareCost','otherExpenses'];
+const MONEY_IDS = ['savings','cash1','rsu1','cash2','rsu2','sideIncome','monthlyRent','homeValue','hoa','daycareCost','otherExpenses'];
 
 function serializeParams() {
   const params = new URLSearchParams();
@@ -1705,6 +1752,9 @@ function paramsObjectFromString(qs) {
   obj.cash2 = +(params.get('cash2') || 0);
   obj.rsu2 = +(params.get('rsu2') || 0);
   obj.yrsAtCo2 = +(params.get('yrsAtCo2') || 0);
+  obj.sideIncome = +(params.get('sideIncome') || 0);
+  obj.sideIncomeType = params.get('sideIncomeType') || 'active';
+  obj.sideIncomeGrowth = +(params.get('sideIncomeGrowth') || 3);
   obj.monthlyRent = +(params.get('monthlyRent') || 0);
   obj.houseBuyAge = +(params.get('houseBuyAge') || 35);
   obj.homeValue = +(params.get('homeValue') || 0);
