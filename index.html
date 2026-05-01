@@ -268,7 +268,7 @@ input[type="range"]::-moz-range-thumb {
   cursor: pointer;
 }
 
-input[type="number"], select {
+input[type="number"], input[type="text"], select {
   width: 100%;
   padding: 7px 10px;
   background: var(--bg-input);
@@ -281,7 +281,7 @@ input[type="number"], select {
   transition: border-color var(--transition), box-shadow var(--transition);
 }
 
-input[type="number"]:focus, select:focus {
+input[type="number"]:focus, input[type="text"]:focus, select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
@@ -568,7 +568,7 @@ select { cursor: pointer; }
         </div>
         <div class="input-group">
           <label class="input-label">Current Savings & Investments</label>
-          <input type="number" id="savings" value="200000" step="10000" min="0">
+          <input type="text" id="savings" value="200,000" data-money>
         </div>
       </div>
     </div>
@@ -583,11 +583,11 @@ select { cursor: pointer; }
         <div class="input-row">
           <div class="input-group">
             <label class="input-label">Cash Salary</label>
-            <input type="number" id="cash1" value="150000" step="5000" min="0">
+            <input type="text" id="cash1" value="150,000" data-money>
           </div>
           <div class="input-group">
             <label class="input-label">Annual RSU Grant</label>
-            <input type="number" id="rsu1" value="75000" step="5000" min="0">
+            <input type="text" id="rsu1" value="75,000" data-money>
           </div>
         </div>
         <div class="input-group">
@@ -607,11 +607,11 @@ select { cursor: pointer; }
         <div class="input-row">
           <div class="input-group">
             <label class="input-label">Cash Salary</label>
-            <input type="number" id="cash2" value="150000" step="5000" min="0">
+            <input type="text" id="cash2" value="150,000" data-money>
           </div>
           <div class="input-group">
             <label class="input-label">Annual RSU Grant</label>
-            <input type="number" id="rsu2" value="75000" step="5000" min="0">
+            <input type="text" id="rsu2" value="75,000" data-money>
           </div>
         </div>
         <div class="input-group">
@@ -631,7 +631,7 @@ select { cursor: pointer; }
         <div class="input-row">
           <div class="input-group">
             <label class="input-label">Current Monthly Rent</label>
-            <input type="number" id="monthlyRent" value="3500" step="100" min="0">
+            <input type="text" id="monthlyRent" value="3,500" data-money>
           </div>
           <div class="input-group">
             <label class="input-label">Age When Buying</label>
@@ -641,11 +641,11 @@ select { cursor: pointer; }
         <div class="input-row">
           <div class="input-group">
             <label class="input-label">Home Value</label>
-            <input type="number" id="homeValue" value="1500000" step="25000" min="0">
+            <input type="text" id="homeValue" value="1,500,000" data-money>
           </div>
           <div class="input-group">
             <label class="input-label">Monthly HOA</label>
-            <input type="number" id="hoa" value="400" step="50" min="0">
+            <input type="text" id="hoa" value="400" data-money>
           </div>
         </div>
         <div class="input-group">
@@ -686,7 +686,7 @@ select { cursor: pointer; }
           </div>
           <div class="input-group">
             <label class="input-label">Monthly Daycare (ages 0-4)</label>
-            <input type="number" id="daycareCost" value="2500" step="100" min="0">
+            <input type="text" id="daycareCost" value="2,500" data-money>
           </div>
           <div class="calc-display" id="kidsCalcDisplay"></div>
         </div>
@@ -702,7 +702,7 @@ select { cursor: pointer; }
       <div class="section-body">
         <div class="input-group">
           <label class="input-label">Monthly Non-Housing Expenses</label>
-          <input type="number" id="otherExpenses" value="4000" step="250" min="0">
+          <input type="text" id="otherExpenses" value="4,000" data-money>
         </div>
       </div>
     </div>
@@ -1052,6 +1052,20 @@ function calcFIRE(p) {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   MONEY INPUT FORMATTING
+   ═══════════════════════════════════════════════════════════ */
+function readMoney(id) {
+  return +(document.getElementById(id).value.replace(/,/g, '')) || 0;
+}
+
+function formatMoneyInput(el) {
+  const raw = el.value.replace(/[^\d]/g, '');
+  const num = parseInt(raw, 10);
+  if (isNaN(num)) { el.value = ''; return; }
+  el.value = num.toLocaleString('en-US');
+}
+
+/* ═══════════════════════════════════════════════════════════
    FORMATTING
    ═══════════════════════════════════════════════════════════ */
 const fmt = n => '$' + Math.round(n).toLocaleString('en-US');
@@ -1143,24 +1157,24 @@ function readParams() {
   return {
     age1:        +document.getElementById('age1').value,
     age2:        +document.getElementById('age2').value,
-    currentSavings: +document.getElementById('savings').value,
-    cash1:       +document.getElementById('cash1').value,
-    rsu1:        +document.getElementById('rsu1').value,
+    currentSavings: readMoney('savings'),
+    cash1:       readMoney('cash1'),
+    rsu1:        readMoney('rsu1'),
     yrsAtCo1:    +document.getElementById('yrsAtCo1').value,
-    cash2:       +document.getElementById('cash2').value,
-    rsu2:        +document.getElementById('rsu2').value,
+    cash2:       readMoney('cash2'),
+    rsu2:        readMoney('rsu2'),
     yrsAtCo2:    +document.getElementById('yrsAtCo2').value,
-    monthlyRent: +document.getElementById('monthlyRent').value,
+    monthlyRent: readMoney('monthlyRent'),
     houseBuyAge: +document.getElementById('houseBuyAge').value,
-    homeValue:   +document.getElementById('homeValue').value,
+    homeValue:   readMoney('homeValue'),
     downPct:     +document.getElementById('downPct').value,
     mortgageRate:+document.getElementById('mortgageRate').value,
-    hoa:         +document.getElementById('hoa').value,
+    hoa:         readMoney('hoa'),
     numKids:     +document.getElementById('numKids').value,
     firstKidAge: +document.getElementById('firstKidAge').value,
     schoolType:  document.getElementById('schoolType').value,
-    daycareCost: +document.getElementById('daycareCost').value,
-    otherMonthly:+document.getElementById('otherExpenses').value,
+    daycareCost: readMoney('daycareCost'),
+    otherMonthly:readMoney('otherExpenses'),
     contrib401k: +document.getElementById('contrib401k').value,
     contribIRA:  +document.getElementById('contribIRA').value,
     employerMatch:+document.getElementById('employerMatch').value,
@@ -1370,9 +1384,14 @@ function toggleTheme() {
 document.addEventListener('DOMContentLoaded', () => {
   try { const s = localStorage.getItem('fire-theme'); if (s) setTheme(s); } catch(e) {}
   initCharts();
+  document.querySelectorAll('[data-money]').forEach(el => {
+    el.addEventListener('input', () => { formatMoneyInput(el); updateDashboard(); });
+  });
+  document.querySelectorAll('input:not([data-money]), select').forEach(el => {
+    el.addEventListener('input', updateDashboard);
+  });
   updateDashboard();
   document.getElementById('themeToggle').addEventListener('click', toggleTheme);
-  document.querySelectorAll('input, select').forEach(el => el.addEventListener('input', updateDashboard));
 });
 </script>
 </body>
