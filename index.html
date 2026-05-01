@@ -150,10 +150,16 @@ body::before {
 }
 
 /* ── Theme Toggle ──────────────────────────────────────── */
-.theme-toggle {
+.header-actions {
   position: absolute;
   top: 24px;
   right: 24px;
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+}
+
+.header-btn {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 20px;
@@ -166,12 +172,121 @@ body::before {
   font-size: 1rem;
   color: var(--text-secondary);
   transition: all var(--transition);
-  z-index: 10;
 }
-.theme-toggle:hover {
+.header-btn:hover {
   border-color: var(--accent);
   color: var(--accent);
   box-shadow: 0 0 16px var(--accent-glow);
+}
+
+.toast {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--accent);
+  color: #fff;
+  padding: 10px 22px;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s ease;
+  z-index: 9999;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.compare-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-bottom: 20px;
+  display: none;
+}
+.compare-section.visible { display: block; }
+.compare-input-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.compare-input-row input {
+  flex: 1;
+  padding: 8px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  outline: none;
+}
+.compare-input-row input:focus { border-color: var(--accent); }
+.compare-input-row button {
+  padding: 8px 16px;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+.compare-table th, .compare-table td {
+  padding: 8px 10px;
+  text-align: right;
+  border-bottom: 1px solid var(--border);
+}
+.compare-table th:first-child, .compare-table td:first-child { text-align: left; }
+.compare-table th { color: var(--text-secondary); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.compare-table .delta-pos { color: #4ade80; }
+.compare-table .delta-neg { color: #f87171; }
+
+.insights-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-top: 20px;
+}
+.insights-title {
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+}
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+.insight-tile {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+.insight-tile h4 {
+  font-size: 0.82rem;
+  margin: 0 0 6px;
+  color: var(--text-primary);
+}
+.insight-tile p {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.5;
 }
 
 /* ── Collapsible Sections ──────────────────────────────── */
@@ -755,7 +870,11 @@ select { cursor: pointer; }
   </aside>
 
   <main class="main">
-    <button class="theme-toggle" id="themeToggle" title="Toggle theme">&#9728;</button>
+    <div class="header-actions">
+      <button class="header-btn" id="shareBtn" title="Share">&#128279;</button>
+      <button class="header-btn" id="compareBtn" title="Compare">&#8646;</button>
+      <button class="header-btn" id="themeToggle" title="Toggle theme">&#9728;</button>
+    </div>
 
     <div class="results-header">
       <h2>Your FIRE Outlook</h2>
@@ -815,6 +934,22 @@ select { cursor: pointer; }
       <div id="breakdownRows"></div>
     </div>
 
+    <!-- Compare Section -->
+    <div class="compare-section" id="compareSection">
+      <div class="chart-title">Compare Models</div>
+      <div class="compare-input-row">
+        <input type="text" id="compareUrl" placeholder="Paste a shared URL here...">
+        <button onclick="runCompare()">Compare</button>
+      </div>
+      <div id="compareResult"></div>
+    </div>
+
+    <!-- Recommendations -->
+    <div class="insights-section">
+      <div class="insights-title">Optimization Insights</div>
+      <div class="insights-grid" id="insightsGrid"></div>
+    </div>
+
     <div class="assumptions">
       <h3>Key Assumptions</h3>
       <ul>
@@ -829,6 +964,8 @@ select { cursor: pointer; }
     </div>
   </main>
 </div>
+
+<div class="toast" id="toast">Link copied!</div>
 
 <script>
 /* ═══════════════════════════════════════════════════════════
@@ -1362,6 +1499,262 @@ function updateDashboard() {
     const sign = row.value >= 0 ? '+' : '';
     return `<div class="breakdown-row${cls}"><span class="breakdown-label"><span class="breakdown-dot" style="background:${row.color}"></span>${row.label}</span><span class="breakdown-value">${sign}${fmt(row.value)}</span></div>`;
   }).join('');
+
+  // Recommendations
+  renderInsights(p, r);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SHARE — URL-encoded params
+   ═══════════════════════════════════════════════════════════ */
+const PARAM_KEYS = [
+  'age1','age2','savings','cash1','rsu1','yrsAtCo1','cash2','rsu2','yrsAtCo2',
+  'monthlyRent','houseBuyAge','homeValue','downPct','mortgageRate','hoa',
+  'numKids','firstKidAge','schoolType','daycareCost','otherExpenses',
+  'contrib401k','contribIRA','employerMatch','salaryGrowth','stockGrowth',
+  'annualReturn','swr','inflation'
+];
+
+const MONEY_IDS = ['savings','cash1','rsu1','cash2','rsu2','monthlyRent','homeValue','hoa','daycareCost','otherExpenses'];
+
+function serializeParams() {
+  const params = new URLSearchParams();
+  PARAM_KEYS.forEach(k => {
+    const el = document.getElementById(k);
+    if (!el) return;
+    const val = el.hasAttribute('data-money') ? el.value.replace(/,/g, '') : el.value;
+    params.set(k, val);
+  });
+  return params;
+}
+
+function loadParamsFromString(qs) {
+  const params = new URLSearchParams(qs);
+  PARAM_KEYS.forEach(k => {
+    if (!params.has(k)) return;
+    const el = document.getElementById(k);
+    if (!el) return;
+    const val = params.get(k);
+    if (el.hasAttribute('data-money')) {
+      const num = parseInt(val, 10);
+      el.value = isNaN(num) ? val : num.toLocaleString('en-US');
+    } else {
+      el.value = val;
+    }
+  });
+}
+
+function paramsObjectFromString(qs) {
+  const params = new URLSearchParams(qs);
+  const obj = {};
+  obj.age1 = +(params.get('age1') || 31);
+  obj.age2 = +(params.get('age2') || 31);
+  obj.currentSavings = +(params.get('savings') || 0);
+  obj.cash1 = +(params.get('cash1') || 0);
+  obj.rsu1 = +(params.get('rsu1') || 0);
+  obj.yrsAtCo1 = +(params.get('yrsAtCo1') || 0);
+  obj.cash2 = +(params.get('cash2') || 0);
+  obj.rsu2 = +(params.get('rsu2') || 0);
+  obj.yrsAtCo2 = +(params.get('yrsAtCo2') || 0);
+  obj.monthlyRent = +(params.get('monthlyRent') || 0);
+  obj.houseBuyAge = +(params.get('houseBuyAge') || 35);
+  obj.homeValue = +(params.get('homeValue') || 0);
+  obj.downPct = +(params.get('downPct') || 20);
+  obj.mortgageRate = +(params.get('mortgageRate') || 6.5);
+  obj.hoa = +(params.get('hoa') || 0);
+  obj.numKids = +(params.get('numKids') || 0);
+  obj.firstKidAge = +(params.get('firstKidAge') || 33);
+  obj.schoolType = params.get('schoolType') || 'public';
+  obj.daycareCost = +(params.get('daycareCost') || 2500);
+  obj.otherMonthly = +(params.get('otherExpenses') || 0);
+  obj.contrib401k = +(params.get('contrib401k') || 23500);
+  obj.contribIRA = +(params.get('contribIRA') || 7000);
+  obj.employerMatch = +(params.get('employerMatch') || 0);
+  obj.salaryGrowth = +(params.get('salaryGrowth') || 3);
+  obj.stockGrowth = +(params.get('stockGrowth') || 10);
+  obj.annualReturn = +(params.get('annualReturn') || 7);
+  obj.swr = +(params.get('swr') || 4);
+  obj.inflation = +(params.get('inflation') || 3);
+  return obj;
+}
+
+function shareModel() {
+  const params = serializeParams();
+  const url = window.location.origin + window.location.pathname + '?' + params.toString();
+  history.replaceState(null, '', '?' + params.toString());
+  navigator.clipboard.writeText(url).then(() => {
+    const t = document.getElementById('toast');
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2000);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   COMPARE
+   ═══════════════════════════════════════════════════════════ */
+function toggleCompare() {
+  document.getElementById('compareSection').classList.toggle('visible');
+}
+
+function runCompare() {
+  const input = document.getElementById('compareUrl').value.trim();
+  if (!input) return;
+  let qs = '';
+  try {
+    const url = new URL(input);
+    qs = url.search.substring(1);
+  } catch(e) {
+    qs = input.startsWith('?') ? input.substring(1) : input;
+  }
+  const theirParams = paramsObjectFromString(qs);
+  const theirResult = calcFIRE(theirParams);
+  const myParams = readParams();
+  const myResult = calcFIRE(myParams);
+
+  const metrics = [
+    { label: 'FIRE Age', mine: myResult.fireAge1, theirs: theirResult.fireAge1, unit: '', lower: true },
+    { label: 'FIRE Number', mine: myResult.fireNumber, theirs: theirResult.fireNumber, unit: '$', lower: true },
+    { label: 'Savings Rate (Yr 0)', mine: myResult.y0.grossIncome > 0 ? (myResult.y0.totalInvested / myResult.y0.grossIncome * 100) : 0, theirs: theirResult.y0.grossIncome > 0 ? (theirResult.y0.totalInvested / theirResult.y0.grossIncome * 100) : 0, unit: '%', lower: false },
+    { label: 'Monthly Housing (Yr 0)', mine: myResult.yearData[0].monthlyHousing, theirs: theirResult.yearData[0].monthlyHousing, unit: '$', lower: true },
+    { label: 'Annual Taxes (Yr 0)', mine: myResult.y0.taxes.total, theirs: theirResult.y0.taxes.total, unit: '$', lower: true },
+    { label: 'Kids Cost (Yr 0)', mine: myResult.y0.kidsCost, theirs: theirResult.y0.kidsCost, unit: '$', lower: true },
+    { label: 'Net Savings (Yr 0)', mine: myResult.y0.totalInvested, theirs: theirResult.y0.totalInvested, unit: '$', lower: false },
+    { label: 'Portfolio at Year 10', mine: myResult.yearData[10] ? myResult.yearData[10].portfolio : 0, theirs: theirResult.yearData[10] ? theirResult.yearData[10].portfolio : 0, unit: '$', lower: false },
+    { label: 'Portfolio at Year 20', mine: myResult.yearData[20] ? myResult.yearData[20].portfolio : 0, theirs: theirResult.yearData[20] ? theirResult.yearData[20].portfolio : 0, unit: '$', lower: false },
+  ];
+
+  const fmtVal = (v, u) => {
+    if (v === null) return 'N/A';
+    if (u === '$') return fmt(v);
+    if (u === '%') return v.toFixed(1) + '%';
+    return Math.round(v).toString();
+  };
+
+  let html = '<table class="compare-table"><thead><tr><th>Metric</th><th>Yours</th><th>Theirs</th><th>Delta</th></tr></thead><tbody>';
+  metrics.forEach(m => {
+    const delta = (m.mine !== null && m.theirs !== null) ? m.mine - m.theirs : null;
+    let deltaClass = '';
+    if (delta !== null && delta !== 0) {
+      const better = m.lower ? delta < 0 : delta > 0;
+      deltaClass = better ? 'delta-pos' : 'delta-neg';
+    }
+    const sign = delta > 0 ? '+' : '';
+    html += `<tr><td>${m.label}</td><td>${fmtVal(m.mine, m.unit)}</td><td>${fmtVal(m.theirs, m.unit)}</td><td class="${deltaClass}">${delta !== null ? sign + fmtVal(delta, m.unit) : '-'}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('compareResult').innerHTML = html;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RECOMMENDATIONS
+   ═══════════════════════════════════════════════════════════ */
+function generateInsights(p, r) {
+  const insights = [];
+
+  // 1. Optimal house purchase age
+  let bestBuyAge = p.houseBuyAge;
+  let bestFireYear = r.fireYear || 60;
+  for (let tryAge = p.age1; tryAge <= 50; tryAge++) {
+    const testP = Object.assign({}, p, { houseBuyAge: tryAge });
+    const testR = calcFIRE(testP);
+    if (testR.fireYear !== null && testR.fireYear < bestFireYear) {
+      bestFireYear = testR.fireYear;
+      bestBuyAge = tryAge;
+    }
+  }
+  if (bestBuyAge !== p.houseBuyAge) {
+    const diff = (r.fireYear || 60) - bestFireYear;
+    insights.push({
+      title: 'Optimal House Purchase Age',
+      text: `Buying at age ${bestBuyAge} instead of ${p.houseBuyAge} could save ${diff} year${diff > 1 ? 's' : ''} on your FIRE timeline (FIRE at ${p.age1 + bestFireYear}).`
+    });
+  } else {
+    insights.push({
+      title: 'House Timing',
+      text: `Your current plan to buy at age ${p.houseBuyAge} is already optimal for FIRE.`
+    });
+  }
+
+  // 2. Kids timing impact
+  if (p.numKids > 0) {
+    const currentFire = r.fireYear || 60;
+    const earlier = Object.assign({}, p, { firstKidAge: p.firstKidAge - 2 });
+    const later = Object.assign({}, p, { firstKidAge: Math.min(p.firstKidAge + 2, 45) });
+    const eResult = calcFIRE(earlier);
+    const lResult = calcFIRE(later);
+    const eFire = eResult.fireYear || 60;
+    const lFire = lResult.fireYear || 60;
+    let text = `Having kids 2 years later (age ${p.firstKidAge + 2}) `;
+    text += lFire < currentFire ? `saves ${currentFire - lFire} year${currentFire - lFire > 1 ? 's' : ''}.` : 'has minimal impact.';
+    text += ` Having kids 2 years earlier (age ${p.firstKidAge - 2}) `;
+    text += eFire > currentFire ? `delays FIRE by ${eFire - currentFire} year${eFire - currentFire > 1 ? 's' : ''}.` : 'has minimal impact.';
+    insights.push({ title: 'Kids Timing Impact', text });
+  } else {
+    const withKid = Object.assign({}, p, { numKids: 1, firstKidAge: p.age1 + 2 });
+    const wkResult = calcFIRE(withKid);
+    const delay = (wkResult.fireYear || 60) - (r.fireYear || 60);
+    insights.push({
+      title: 'Kids Impact',
+      text: delay > 0 ? `Adding 1 child at age ${p.age1 + 2} would delay FIRE by ~${delay} year${delay > 1 ? 's' : ''}.` : 'Adding a child would have minimal FIRE impact with your savings rate.'
+    });
+  }
+
+  // 3. Rent vs Buy break-even
+  const rentAnnual = p.monthlyRent * 12;
+  const ownAnnual = calcMonthlyHousing(p.homeValue, p.downPct, p.mortgageRate, p.hoa).total * 12;
+  if (ownAnnual > rentAnnual) {
+    let cumulRent = 0, cumulOwn = 0, breakEven = null;
+    for (let yr = 0; yr <= 30; yr++) {
+      cumulRent += rentAnnual;
+      cumulOwn += ownAnnual;
+      if (yr === 0) cumulOwn += p.homeValue * (p.downPct / 100);
+      if (cumulRent >= cumulOwn && breakEven === null) {
+        breakEven = yr;
+      }
+    }
+    insights.push({
+      title: 'Rent vs. Buy Break-even',
+      text: breakEven ? `Buying becomes cheaper than renting after ~${breakEven} years (total cost basis). Current rent saves ${fmt(ownAnnual - rentAnnual)}/yr vs. ownership.` : `Renting saves ${fmt(ownAnnual - rentAnnual)}/yr. Over 30 years, renting remains cheaper on a pure cash-flow basis (excluding equity).`
+    });
+  } else {
+    insights.push({
+      title: 'Rent vs. Buy',
+      text: `Owning costs ${fmt(rentAnnual - ownAnnual)}/yr less than renting. Buying sooner would benefit your FIRE timeline.`
+    });
+  }
+
+  // 4. Lifestyle capacity at FIRE targets
+  const targets = [45, 50, 55];
+  let capText = '';
+  for (const tgt of targets) {
+    const yrsToFire = tgt - p.age1;
+    if (yrsToFire <= 0) continue;
+    let lo = 0, hi = 30000, best = p.otherMonthly;
+    for (let i = 0; i < 20; i++) {
+      const mid = Math.round((lo + hi) / 2);
+      const testP = Object.assign({}, p, { otherMonthly: mid });
+      const testR = calcFIRE(testP);
+      if (testR.fireYear !== null && testR.fireYear <= yrsToFire) {
+        lo = mid;
+        best = mid;
+      } else {
+        hi = mid;
+      }
+    }
+    capText += `FIRE by ${tgt}: ${fmt(best)}/mo lifestyle. `;
+  }
+  if (capText) {
+    insights.push({ title: 'Lifestyle Capacity', text: capText.trim() });
+  }
+
+  return insights;
+}
+
+function renderInsights(p, r) {
+  const insights = generateInsights(p, r);
+  document.getElementById('insightsGrid').innerHTML = insights.map(i =>
+    `<div class="insight-tile"><h4>${i.title}</h4><p>${i.text}</p></div>`
+  ).join('');
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1383,6 +1776,10 @@ function toggleTheme() {
    ═══════════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
   try { const s = localStorage.getItem('fire-theme'); if (s) setTheme(s); } catch(e) {}
+  // Load shared params from URL if present
+  if (window.location.search.length > 1) {
+    loadParamsFromString(window.location.search.substring(1));
+  }
   initCharts();
   document.querySelectorAll('[data-money]').forEach(el => {
     el.addEventListener('input', () => { formatMoneyInput(el); updateDashboard(); });
@@ -1392,6 +1789,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   updateDashboard();
   document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+  document.getElementById('shareBtn').addEventListener('click', shareModel);
+  document.getElementById('compareBtn').addEventListener('click', toggleCompare);
 });
 </script>
 </body>
