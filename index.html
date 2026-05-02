@@ -1284,11 +1284,19 @@ function calcFIRE(p) {
   let fireYear = null;
   let fireNumber = fireNumberAtYear(0);
   let depletionAge = null;
+  const downPayment = p.homeValue * (p.downPct / 100);
+  let downPaymentDeducted = false;
 
   for (let y = 0; y <= maxYears; y++) {
     const ownsHome = (p.age1 + y) >= p.houseBuyAge;
     const monthlyHousingY = ownsHome ? monthlyOwnership : p.monthlyRent;
     const annualHousingY = monthlyHousingY * 12;
+
+    // Deduct down payment from portfolio in the year the house is purchased
+    if (ownsHome && !downPaymentDeducted && p.houseBuyAge < 999) {
+      portfolio -= downPayment;
+      downPaymentDeducted = true;
+    }
 
     const retired = quitAtFire && fireYear !== null && y > fireYear;
 
