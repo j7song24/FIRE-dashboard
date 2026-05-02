@@ -917,13 +917,19 @@ select { cursor: pointer; }
     <!-- Other Expenses -->
     <div class="section" id="sec-other">
       <div class="section-header" onclick="toggleSection('sec-other')">
-        <span class="section-title">Other Expenses<span class="info-tip" data-tip="Monthly non-housing, non-kids spending (food, transport, entertainment, etc.)">i</span></span>
+        <span class="section-title">Other Expenses<span class="info-tip" data-tip="Monthly non-housing, non-kids spending. 'Base' is pre-kids / post-kids. 'With Kids bump' adds extra when kids are living at home (groceries, activities, etc.)">i</span></span>
         <span class="section-chevron">&#9660;</span>
       </div>
       <div class="section-body">
-        <div class="input-group">
-          <label class="input-label">Monthly Non-Housing Expenses</label>
-          <input type="text" id="otherExpenses" value="4,000" data-money>
+        <div class="input-row">
+          <div class="input-group">
+            <label class="input-label">Base (no kids at home)</label>
+            <input type="text" id="otherExpenses" value="4,000" data-money>
+          </div>
+          <div class="input-group">
+            <label class="input-label">With-Kids Bump</label>
+            <input type="text" id="otherKidsBump" value="1,500" data-money>
+          </div>
         </div>
       </div>
     </div>
@@ -1238,10 +1244,17 @@ function calcFIRE(p) {
   const maxYears = 60;
   const quitAtFire = p.quitAtFire || false;
 
-  // Pre-compute kids costs for all years (needed for PV of remaining costs)
+  // Pre-compute kids costs and whether kids are at home for all years
   const kidsCostByYear = [];
+  const kidsAtHomeByYear = [];
   for (let y = 0; y <= maxYears; y++) {
     kidsCostByYear.push(calcKidsCostForYear(y, p.age1, p.numKids, p.firstKidAge, p.schoolType, p.daycareCost));
+    let anyAtHome = false;
+    for (let k = 0; k < p.numKids; k++) {
+      const kidAge = (p.age1 + y) - (p.firstKidAge + k * 2.5);
+      if (kidAge >= 0 && kidAge < 22) { anyAtHome = true; break; }
+    }
+    kidsAtHomeByYear.push(anyAtHome);
   }
 
   // Dynamic FIRE number for each year: perpetual base expenses + PV of remaining kids costs
@@ -1249,13 +1262,16 @@ function calcFIRE(p) {
     const ownsHome = (p.age1 + y) >= p.houseBuyAge;
     const monthlyHousingY = ownsHome ? monthlyOwnership : p.monthlyRent;
     const annualBaseExpenses = monthlyHousingY * 12 + p.otherMonthly * 12 * Math.pow(1 + inflationR, y) + annualHealthcare;
-    // Perpetual portion (housing + other + healthcare)
+    // Perpetual portion (housing + other base + healthcare)
     const perpetualPortion = annualBaseExpenses / (p.swr / 100) / (1 - withdrawalTaxRate);
-    // PV of remaining kids costs from year y onward (discounted at real return)
+    // PV of remaining kids-related costs (education + lifestyle bump) from year y onward
     let pvKids = 0;
+    const bump = (p.otherKidsBump || 0) * 12;
     for (let f = y; f <= maxYears; f++) {
-      if (kidsCostByYear[f] > 0) {
-        pvKids += kidsCostByYear[f] / Math.pow(1 + realReturn, f - y);
+      let tempCost = kidsCostByYear[f];
+      if (kidsAtHomeByYear[f]) tempCost += bump * Math.pow(1 + inflationR, f);
+      if (tempCost > 0) {
+        pvKids += tempCost / Math.pow(1 + realReturn, f - y);
       }
     }
     // Kids lump sum also needs to be grossed up for withdrawal taxes
@@ -1281,7 +1297,9 @@ function calcFIRE(p) {
     let totalMatch = 0, totalInvested = 0, discretionarySavings = 0, takeHome = 0;
 
     const kidsCost = kidsCostByYear[y];
-    const annualOtherY = p.otherMonthly * 12 * Math.pow(1 + inflationR, y);
+    const kidsAtHome = p.numKids > 0 && kidsAtHomeByYear[y];
+    const monthlyOtherY = p.otherMonthly + (kidsAtHome ? (p.otherKidsBump || 0) : 0);
+    const annualOtherY = monthlyOtherY * 12 * Math.pow(1 + inflationR, y);
     const annualExpenses = annualHousingY + kidsCost + annualOtherY;
 
     // IRS limits grow with inflation (rounded to nearest $500 like real IRS adjustments)
@@ -1500,6 +1518,7 @@ function readParams() {
     schoolType:  document.getElementById('schoolType').value,
     daycareCost: readMoney('daycareCost'),
     otherMonthly:readMoney('otherExpenses'),
+    otherKidsBump:readMoney('otherKidsBump'),
     contrib401k: +document.getElementById('contrib401k').value,
     contribIRA:  +document.getElementById('contribIRA').value,
     employerMatch:+document.getElementById('employerMatch').value,
@@ -1715,12 +1734,12 @@ const PARAM_KEYS = [
   'age1','age2','savings','cash1','rsu1','yrsAtCo1','cash2','rsu2','yrsAtCo2',
   'sideIncome','sideIncomeType','sideIncomeGrowth',
   'monthlyRent','rentForever','houseBuyAge','homeValue','downPct','mortgageRate','hoa',
-  'numKids','firstKidAge','schoolType','daycareCost','otherExpenses',
+  'numKids','firstKidAge','schoolType','daycareCost','otherExpenses','otherKidsBump',
   'contrib401k','contribIRA','employerMatch','salaryGrowth','stockGrowth',
   'annualReturn','swr','inflation','healthcareCost','withdrawalTax','quitAtFire'
 ];
 
-const MONEY_IDS = ['savings','cash1','rsu1','cash2','rsu2','sideIncome','monthlyRent','homeValue','hoa','daycareCost','otherExpenses'];
+const MONEY_IDS = ['savings','cash1','rsu1','cash2','rsu2','sideIncome','monthlyRent','homeValue','hoa','daycareCost','otherExpenses','otherKidsBump'];
 
 function serializeParams() {
   const params = new URLSearchParams();
@@ -1782,6 +1801,7 @@ function paramsObjectFromString(qs) {
   obj.schoolType = params.get('schoolType') || 'public';
   obj.daycareCost = +(params.get('daycareCost') || 2500);
   obj.otherMonthly = +(params.get('otherExpenses') || 0);
+  obj.otherKidsBump = +(params.get('otherKidsBump') || 1500);
   obj.contrib401k = +(params.get('contrib401k') || 23500);
   obj.contribIRA = +(params.get('contribIRA') || 7000);
   obj.employerMatch = +(params.get('employerMatch') || 0);
