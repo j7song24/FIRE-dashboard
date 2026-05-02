@@ -1723,6 +1723,10 @@ function updateDashboard() {
   if (vy.sideIncome > 0) rows.splice(3, 0, { label: 'Side Income', value: vy.sideIncome, color: c.green });
   if (vy.taxes.seTax > 0) rows.push({ label: 'SE Tax', value: -vy.taxes.seTax, color: c.target });
   if (vy.totalMatch > 0) rows.push({ label: 'Employer Match', value: vy.totalMatch, color: c.green });
+  const buyYear = p.houseBuyAge - p.age1;
+  if (viewYear === buyYear && p.houseBuyAge < 999) {
+    rows.push({ label: 'Down Payment (' + p.downPct + '% of home)', value: -(p.homeValue * p.downPct / 100), color: c.amber });
+  }
   rows.push({ label: vy.ownsHome ? 'Housing (mortgage+tax+ins+HOA)' : 'Housing (rent)', value: -vy.monthlyHousing * 12, color: c.amber });
   if (p.numKids > 0 && vy.kidsCost > 0) rows.push({ label: `Kids (${p.numKids})`, value: -vy.kidsCost, color: c.purple });
   rows.push({ label: 'Other Expenses', value: -vy.annualOther, color: c.muted });
