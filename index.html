@@ -1074,13 +1074,16 @@ select { cursor: pointer; }
     <div class="assumptions">
       <h3>Key Assumptions</h3>
       <ul>
-        <li>Both partners are W-2 employees, filing married jointly</li>
-        <li>RSUs vest on a 4-year schedule with 1-year cliff, sold at vest (ordinary income)</li>
-        <li>Mortgage is 30-year fixed; property tax 1.1%; insurance 0.35% of home value</li>
-        <li>Kid costs vary by age: daycare (0-4), K-12, university (18-21), done at 22</li>
-        <li>Kids spaced 2.5 years apart from first-kid age</li>
-        <li>FIRE number = perpetual base expenses (housing + other + healthcare) / SWR / (1 &minus; tax) + PV of remaining kids costs grossed up for taxes</li>
-        <li>Portfolio growth uses real (inflation-adjusted) return</li>
+        <li><strong>Tax filing:</strong> Married filing jointly; 2025 federal MFJ brackets, CA state brackets, FICA (6.2% SS up to $168,600 + 1.45% Medicare + 0.9% additional Medicare over $250K combined); standard deduction $30,000</li>
+        <li><strong>RSUs:</strong> Vest on a 4-year schedule with 1-year cliff, sold at vest (ordinary income); grants grow at salary growth rate</li>
+        <li><strong>Side income:</strong> Active = 15.3% SE tax on 92.35% of earnings (half deductible from AGI); Passive = no SE tax</li>
+        <li><strong>Salary &amp; contributions:</strong> Cash salary and RSU grants grow at the salary growth rate; 401k/IRA limits grow with inflation (rounded to nearest $1,000); employer match capped at min(match% &times; cash salary, 401k limit)</li>
+        <li><strong>Housing:</strong> 30-year fixed mortgage; property tax 1.1%; insurance 0.35% of home value; down payment deducted from portfolio in the purchase year</li>
+        <li><strong>Kids:</strong> Costs vary by age &mdash; daycare (0-4), K-8, high school (14-17), university (18-21), done at 22; spaced 2.5 years apart; &ldquo;with-kids bump&rdquo; adds extra lifestyle expenses while any child is at home</li>
+        <li><strong>Expenses:</strong> Base other expenses grow at inflation rate; with-kids bump applies only while kids are at home (ages 0-21)</li>
+        <li><strong>FIRE number:</strong> Perpetual base expenses (housing + other + healthcare) / SWR / (1 &minus; tax) + PV of remaining kids costs (including lifestyle bump) grossed up for withdrawal taxes</li>
+        <li><strong>Portfolio:</strong> Grows at real (inflation-adjusted) return; post-FIRE healthcare ($2,500/mo default) included in withdrawal needs</li>
+        <li><strong>Quit at FIRE mode:</strong> Income drops to zero at FIRE age; portfolio funds all expenses via withdrawals grossed up for taxes</li>
       </ul>
     </div>
   </main>
