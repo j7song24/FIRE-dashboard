@@ -1750,7 +1750,7 @@ const PARAM_KEYS = [
   'annualReturn','swr','inflation','healthcareCost','withdrawalTax','quitAtFire'
 ];
 
-const MONEY_IDS = ['savings','cash1','rsu1','cash2','rsu2','sideIncome','monthlyRent','homeValue','hoa','daycareCost','otherExpenses','otherKidsBump'];
+const MONEY_IDS = ['savings','cash1','rsu1','cash2','rsu2','sideIncome','monthlyRent','homeValue','hoa','daycareCost','otherExpenses','otherKidsBump','healthcareCost'];
 
 function serializeParams() {
   const params = new URLSearchParams();
@@ -1770,19 +1770,21 @@ function serializeParams() {
 function loadParamsFromString(qs) {
   const params = new URLSearchParams(qs);
   PARAM_KEYS.forEach(k => {
-    if (!params.has(k)) return;
-    const el = document.getElementById(k);
-    if (!el) return;
-    const val = params.get(k);
-    if (val === '' || val === null) return;
-    if (el.type === 'checkbox') {
-      el.checked = val === 'true';
-    } else if (el.hasAttribute('data-money')) {
-      const num = parseFloat(val);
-      el.value = isNaN(num) ? '0' : Math.round(num).toLocaleString('en-US');
-    } else {
-      el.value = val;
-    }
+    try {
+      if (!params.has(k)) return;
+      const el = document.getElementById(k);
+      if (!el) return;
+      const val = params.get(k);
+      if (val === '' || val === null) return;
+      if (el.type === 'checkbox') {
+        el.checked = val === 'true';
+      } else if (el.hasAttribute('data-money')) {
+        const num = parseFloat(val);
+        el.value = isNaN(num) ? '0' : Math.round(num).toLocaleString('en-US');
+      } else {
+        el.value = val;
+      }
+    } catch(e) { console.warn('Param load failed for:', k, e); }
   });
 }
 
@@ -2027,11 +2029,15 @@ function toggleTheme() {
    ═══════════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
   try { const s = localStorage.getItem('fire-theme'); if (s) setTheme(s); } catch(e) {}
+  initCharts();
   // Load shared params from URL if present
   if (window.location.search.length > 1) {
-    loadParamsFromString(window.location.search.substring(1));
+    try {
+      loadParamsFromString(window.location.search.substring(1));
+      // Re-format all money inputs after loading params
+      document.querySelectorAll('[data-money]').forEach(el => { formatMoneyInput(el); });
+    } catch(e) { console.error('URL param load error:', e); }
   }
-  initCharts();
   document.querySelectorAll('[data-money]').forEach(el => {
     el.addEventListener('input', () => { formatMoneyInput(el); updateDashboard(); });
   });
