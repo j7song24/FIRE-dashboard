@@ -987,6 +987,70 @@ select { cursor: pointer; }
         </div>
       </div>
     </div>
+
+    <!-- Post-FIRE Relocation -->
+    <div class="section" id="sec-reloc">
+      <div class="section-header" onclick="toggleSection('sec-reloc')">
+        <span class="section-title">Relocation Abroad<span class="info-tip" data-tip="Model moving to another country. Set the age you plan to relocate (independent of FIRE age). Expenses switch to your relocated cost of living. Assumes no withdrawal tax abroad. House sale proceeds or rental income factor into your portfolio.">i</span></span>
+        <span class="section-chevron">&#9660;</span>
+      </div>
+      <div class="section-body">
+        <div class="input-group">
+          <label class="input-label" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="relocEnabled" style="width:auto"> Enable Relocation</label>
+        </div>
+        <div id="relocInputs" style="display:none">
+          <div class="input-row">
+            <div class="input-group">
+              <label class="input-label">Destination</label>
+              <select id="relocDestination" onchange="applyRelocPreset()">
+                <option value="china">China (Shanghai)</option>
+                <option value="hongkong">Hong Kong</option>
+                <option value="thailand">Thailand (Bangkok)</option>
+                <option value="singapore">Singapore</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
+            <div class="input-group">
+              <label class="input-label">Relocation Age <span class="input-value" id="v-relocAge">45</span></label>
+              <input type="range" id="relocAge" min="30" max="70" value="45" step="1">
+            </div>
+          </div>
+          <div class="input-row">
+            <div class="input-group">
+              <label class="input-label">Monthly Living Expenses</label>
+              <input type="text" id="relocMonthly" value="3,000" data-money>
+            </div>
+            <div class="input-group">
+              <label class="input-label">Monthly Healthcare</label>
+              <input type="text" id="relocHealthcare" value="300" data-money>
+            </div>
+          </div>
+          <div class="input-row">
+            <div class="input-group">
+              <label class="input-label">Your Net Monthly Pay</label>
+              <input type="text" id="relocIncome1" value="3,000" data-money>
+            </div>
+            <div class="input-group">
+              <label class="input-label">Partner Net Monthly Pay</label>
+              <input type="text" id="relocIncome2" value="3,000" data-money>
+            </div>
+          </div>
+          <div id="relocHouseGroup">
+            <div class="input-group">
+              <label class="input-label">House After Relocation</label>
+              <select id="relocDisposition">
+                <option value="sell">Sell &mdash; proceeds to portfolio</option>
+                <option value="rent">Rent out &mdash; passive income</option>
+              </select>
+            </div>
+            <div class="input-group" id="relocRentalGroup" style="display:none">
+              <label class="input-label">Monthly Rental Income (net)</label>
+              <input type="text" id="relocRental" value="4,000" data-money>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </aside>
 
   <main class="main">
@@ -1084,6 +1148,7 @@ select { cursor: pointer; }
         <li><strong>FIRE number:</strong> Perpetual base expenses (housing + other + healthcare) / SWR / (1 &minus; tax) + PV of remaining kids costs (including lifestyle bump) grossed up for withdrawal taxes</li>
         <li><strong>Portfolio:</strong> Grows at real (inflation-adjusted) return; post-FIRE healthcare ($2,500/mo default) included in withdrawal needs</li>
         <li><strong>Quit at FIRE mode:</strong> Income drops to zero at FIRE age; portfolio funds all expenses via withdrawals grossed up for taxes</li>
+        <li><strong>Relocation abroad:</strong> When enabled, both partners switch to local net-of-tax jobs at the chosen relocation age (independent of FIRE age); expenses auto-fill from country presets (Shanghai, Hong Kong, Bangkok, Singapore) or custom; no US taxes or 401k/IRA abroad; local income grows at the salary growth rate; house can be sold or rented out; FIRE number = max(0, relocated expenses &minus; local income &minus; rental) / SWR</li>
       </ul>
     </div>
   </main>
@@ -1260,13 +1325,26 @@ function calcFIRE(p) {
     kidsAtHomeByYear.push(anyAtHome);
   }
 
+  const relocEnabled = p.relocEnabled || false;
+
   // Dynamic FIRE number for each year: perpetual base expenses + PV of remaining kids costs
   function fireNumberAtYear(y) {
-    const ownsHome = (p.age1 + y) >= p.houseBuyAge;
-    const monthlyHousingY = ownsHome ? monthlyOwnership : p.monthlyRent;
-    const annualBaseExpenses = monthlyHousingY * 12 + p.otherMonthly * 12 * Math.pow(1 + inflationR, y) + annualHealthcare;
-    // Perpetual portion (housing + other base + healthcare)
-    const perpetualPortion = annualBaseExpenses / (p.swr / 100) / (1 - withdrawalTaxRate);
+    let perpetualPortion;
+    if (relocEnabled && (p.age1 + y) >= p.relocAge) {
+      let relocAnnual = (p.relocMonthly + p.relocHealthcare) * 12 * Math.pow(1 + inflationR, y);
+      const ownsHomeY = (p.age1 + y) >= p.houseBuyAge && p.houseBuyAge < 999;
+      if (p.relocDisposition === 'rent' && ownsHomeY) {
+        relocAnnual += monthlyOwnership * 12;
+      }
+      const rentalOffset = (p.relocDisposition === 'rent' && ownsHomeY) ? p.relocRental * 12 * Math.pow(1 + inflationR, y) : 0;
+      const netNeeded = Math.max(0, relocAnnual - rentalOffset);
+      perpetualPortion = netNeeded / (p.swr / 100);
+    } else {
+      const ownsHome = (p.age1 + y) >= p.houseBuyAge;
+      const monthlyHousingY = ownsHome ? monthlyOwnership : p.monthlyRent;
+      const annualBaseExpenses = monthlyHousingY * 12 + p.otherMonthly * 12 * Math.pow(1 + inflationR, y) + annualHealthcare;
+      perpetualPortion = annualBaseExpenses / (p.swr / 100) / (1 - withdrawalTaxRate);
+    }
     // PV of remaining kids-related costs (education + lifestyle bump) from year y onward
     let pvKids = 0;
     const bump = (p.otherKidsBump || 0) * 12;
@@ -1277,8 +1355,7 @@ function calcFIRE(p) {
         pvKids += tempCost / Math.pow(1 + realReturn, f - y);
       }
     }
-    // Kids lump sum also needs to be grossed up for withdrawal taxes
-    const kidsGrossedUp = pvKids / (1 - withdrawalTaxRate);
+    const kidsGrossedUp = (relocEnabled && (p.age1 + y) >= p.relocAge) ? pvKids : pvKids / (1 - withdrawalTaxRate);
     return perpetualPortion + kidsGrossedUp;
   }
 
@@ -1289,19 +1366,37 @@ function calcFIRE(p) {
   let depletionAge = null;
   const downPayment = p.homeValue * (p.downPct / 100);
   let downPaymentDeducted = false;
+  let houseSoldProceeds = 0;
+  let houseSoldRecorded = false;
+  let relocated = false;
 
   for (let y = 0; y <= maxYears; y++) {
     const ownsHome = (p.age1 + y) >= p.houseBuyAge;
     const monthlyHousingY = ownsHome ? monthlyOwnership : p.monthlyRent;
     const annualHousingY = monthlyHousingY * 12;
 
-    // Deduct down payment from portfolio in the year the house is purchased
     if (ownsHome && !downPaymentDeducted && p.houseBuyAge < 999) {
       portfolio -= downPayment;
       downPaymentDeducted = true;
     }
 
     const retired = quitAtFire && fireYear !== null && y > fireYear;
+    const isRelocated = relocEnabled && (p.age1 + y) >= p.relocAge;
+
+    // Handle house sale / rental income in the first post-FIRE year when relocating
+    let relocRentalIncomeY = 0;
+    if (isRelocated && !relocated) {
+      relocated = true;
+      if (ownsHome && p.houseBuyAge < 999) {
+        if (p.relocDisposition === 'sell') {
+          houseSoldProceeds = p.homeValue;
+          portfolio += houseSoldProceeds;
+        }
+      }
+    }
+    if (isRelocated && p.relocDisposition === 'rent' && ownsHome && p.houseBuyAge < 999) {
+      relocRentalIncomeY = p.relocRental * 12 * Math.pow(1 + inflationR, y);
+    }
 
     let grossIncome = 0, cash1Y = 0, cash2Y = 0, rsu1 = 0, rsu2 = 0, sideIncomeY = 0;
     let taxes = { federal: 0, state: 0, fica: 0, seTax: 0, total: 0, agi: 0 };
@@ -1309,44 +1404,67 @@ function calcFIRE(p) {
 
     const kidsCost = kidsCostByYear[y];
     const kidsAtHome = p.numKids > 0 && kidsAtHomeByYear[y];
-    const monthlyOtherY = p.otherMonthly + (kidsAtHome ? (p.otherKidsBump || 0) : 0);
-    const annualOtherY = monthlyOtherY * 12 * Math.pow(1 + inflationR, y);
-    const annualExpenses = annualHousingY + kidsCost + annualOtherY;
-
-    // IRS limits grow with inflation (rounded to nearest $500 like real IRS adjustments)
     const inflFactor = Math.pow(1 + inflationR, y);
+
+    let annualExpenses, annualOtherY, monthlyOtherY;
+    if (isRelocated) {
+      annualOtherY = p.relocMonthly * 12 * inflFactor;
+      const relocHealthcareY = p.relocHealthcare * 12 * inflFactor;
+      annualExpenses = annualOtherY + relocHealthcareY + kidsCost;
+      if (p.relocDisposition === 'rent' && ownsHome && p.houseBuyAge < 999) {
+        annualExpenses += monthlyOwnership * 12;
+      }
+    } else {
+      monthlyOtherY = p.otherMonthly + (kidsAtHome ? (p.otherKidsBump || 0) : 0);
+      annualOtherY = monthlyOtherY * 12 * inflFactor;
+      annualExpenses = annualHousingY + kidsCost + annualOtherY;
+    }
+
     const total401kY = Math.round(base401k * inflFactor / 1000) * 1000;
     const totalIRAY = Math.round(baseIRA * inflFactor / 1000) * 1000;
     const contrib401kY = total401kY / 2;
 
     if (!retired) {
-      const growthFactor = Math.pow(1 + salaryG, y);
-      cash1Y = p.cash1 * growthFactor;
-      cash2Y = p.cash2 * growthFactor;
-      const rsuGrant1Y = p.rsu1 * growthFactor;
-      const rsuGrant2Y = p.rsu2 * growthFactor;
+      if (isRelocated) {
+        const relocGrowth = Math.pow(1 + salaryG, y);
+        grossIncome = (p.relocIncome1 + p.relocIncome2) * 12 * relocGrowth;
+        takeHome = grossIncome + relocRentalIncomeY;
+        discretionarySavings = takeHome - annualExpenses;
+        totalInvested = discretionarySavings;
+      } else {
+        const growthFactor = Math.pow(1 + salaryG, y);
+        cash1Y = p.cash1 * growthFactor;
+        cash2Y = p.cash2 * growthFactor;
+        const rsuGrant1Y = p.rsu1 * growthFactor;
+        const rsuGrant2Y = p.rsu2 * growthFactor;
 
-      rsu1 = calcRSUIncomeForYear(y, rsuGrant1Y, p.yrsAtCo1, p.stockGrowth);
-      rsu2 = calcRSUIncomeForYear(y, rsuGrant2Y, p.yrsAtCo2, p.stockGrowth);
-      sideIncomeY = p.sideIncome * Math.pow(1 + (p.sideIncomeGrowth || 0) / 100, y);
-      const w2_1 = cash1Y + rsu1;
-      const w2_2 = cash2Y + rsu2;
-      grossIncome = w2_1 + w2_2 + sideIncomeY;
+        rsu1 = calcRSUIncomeForYear(y, rsuGrant1Y, p.yrsAtCo1, p.stockGrowth);
+        rsu2 = calcRSUIncomeForYear(y, rsuGrant2Y, p.yrsAtCo2, p.stockGrowth);
+        sideIncomeY = p.sideIncome * Math.pow(1 + (p.sideIncomeGrowth || 0) / 100, y);
+        const w2_1 = cash1Y + rsu1;
+        const w2_2 = cash2Y + rsu2;
+        grossIncome = w2_1 + w2_2 + sideIncomeY;
 
-      taxes = calcTaxes(w2_1, w2_2, total401kY, sideIncomeY, p.sideIncomeType);
-      takeHome = grossIncome - taxes.total - total401kY - totalIRAY;
-      discretionarySavings = takeHome - annualExpenses;
+        taxes = calcTaxes(w2_1, w2_2, total401kY, sideIncomeY, p.sideIncomeType);
+        takeHome = grossIncome - taxes.total - total401kY - totalIRAY;
+        discretionarySavings = takeHome - annualExpenses;
 
-      const match1 = Math.min(cash1Y * matchRate, contrib401kY);
-      const match2 = Math.min(cash2Y * matchRate, contrib401kY);
-      totalMatch = match1 + match2;
-      totalInvested = discretionarySavings + total401kY + totalIRAY + totalMatch;
+        const match1 = Math.min(cash1Y * matchRate, contrib401kY);
+        const match2 = Math.min(cash2Y * matchRate, contrib401kY);
+        totalMatch = match1 + match2;
+        totalInvested = discretionarySavings + total401kY + totalIRAY + totalMatch;
+      }
 
       if (y > 0) {
         portfolio = portfolio * (1 + realReturn) + totalInvested;
       }
     } else {
-      const withdrawal = (annualExpenses + annualHealthcare) / (1 - withdrawalTaxRate);
+      let withdrawal;
+      if (isRelocated) {
+        withdrawal = annualExpenses - relocRentalIncomeY;
+      } else {
+        withdrawal = (annualExpenses + annualHealthcare) / (1 - withdrawalTaxRate);
+      }
       portfolio = portfolio * (1 + realReturn) - withdrawal;
       if (portfolio <= 0 && depletionAge === null) {
         depletionAge = p.age1 + y;
@@ -1365,9 +1483,12 @@ function calcFIRE(p) {
       annualExpenses,
       kidsCost,
       annualOther: annualOtherY,
-      monthlyHousing: monthlyHousingY,
-      ownsHome,
+      monthlyHousing: isRelocated ? 0 : monthlyHousingY,
+      ownsHome: isRelocated ? false : ownsHome,
       retired,
+      isRelocated,
+      relocRentalIncome: relocRentalIncomeY,
+      houseSoldProceeds: (isRelocated && !houseSoldRecorded && houseSoldProceeds > 0) ? (houseSoldRecorded = true, houseSoldProceeds) : 0,
       takeHome,
       discretionarySavings,
       totalInvested,
@@ -1501,6 +1622,27 @@ function initCharts() {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   RELOCATION PRESETS
+   ═══════════════════════════════════════════════════════════ */
+const RELOC_PRESETS = {
+  china:     { monthly: 3000, healthcare: 300, label: 'China (Shanghai)' },
+  hongkong:  { monthly: 5500, healthcare: 500, label: 'Hong Kong' },
+  thailand:  { monthly: 2500, healthcare: 200, label: 'Thailand (Bangkok)' },
+  singapore: { monthly: 5000, healthcare: 400, label: 'Singapore' },
+  custom:    null
+};
+
+function applyRelocPreset() {
+  const key = document.getElementById('relocDestination').value;
+  const preset = RELOC_PRESETS[key];
+  if (preset) {
+    document.getElementById('relocMonthly').value = preset.monthly.toLocaleString('en-US');
+    document.getElementById('relocHealthcare').value = preset.healthcare.toLocaleString('en-US');
+  }
+  updateDashboard();
+}
+
+/* ═══════════════════════════════════════════════════════════
    UPDATE DASHBOARD
    ═══════════════════════════════════════════════════════════ */
 function readParams() {
@@ -1541,6 +1683,15 @@ function readParams() {
     healthcareCost: readMoney('healthcareCost'),
     withdrawalTax: +document.getElementById('withdrawalTax').value,
     quitAtFire: document.getElementById('quitAtFire').checked,
+    relocEnabled: document.getElementById('relocEnabled').checked,
+    relocAge: +document.getElementById('relocAge').value,
+    relocDestination: document.getElementById('relocDestination').value,
+    relocMonthly: readMoney('relocMonthly'),
+    relocHealthcare: readMoney('relocHealthcare'),
+    relocIncome1: readMoney('relocIncome1'),
+    relocIncome2: readMoney('relocIncome2'),
+    relocDisposition: document.getElementById('relocDisposition').value,
+    relocRental: readMoney('relocRental'),
   };
 }
 
@@ -1571,6 +1722,12 @@ function updateDashboard() {
 
   // Rent forever toggle
   document.getElementById('buyInputs').style.display = p.rentForever ? 'none' : 'block';
+
+  // Relocation section visibility
+  document.getElementById('relocInputs').style.display = p.relocEnabled ? 'block' : 'none';
+  document.getElementById('relocHouseGroup').style.display = p.rentForever ? 'none' : 'block';
+  document.getElementById('relocRentalGroup').style.display = (p.relocDisposition === 'rent' && !p.rentForever) ? 'block' : 'none';
+  document.getElementById('v-relocAge').textContent = p.relocAge;
 
   // Kids extra section visibility
   document.getElementById('kidsExtra').style.display = p.numKids > 0 ? 'block' : 'none';
@@ -1639,6 +1796,10 @@ function updateDashboard() {
   } else if (p.quitAtFire && r.fireYear && !r.depletionAge) {
     document.getElementById('kpi-fireYears1').textContent += ' | sustains!';
   }
+  if (p.relocEnabled && r.fireYear) {
+    const destLabel = (RELOC_PRESETS[p.relocDestination] || {}).label || p.relocDestination;
+    document.getElementById('kpi-fireYears1').textContent += ' | relocate at ' + p.relocAge + ' to ' + destLabel;
+  }
 
   const savingsRate = y0.grossIncome > 0 ? (y0.totalInvested / y0.grossIncome * 100) : 0;
   document.getElementById('kpi-savingsRate').textContent = savingsRate.toFixed(1) + '%';
@@ -1681,27 +1842,69 @@ function updateDashboard() {
   document.getElementById('breakdownTitle').textContent = vyLabel + ' Annual Cash Flow';
 
   // Budget donut
-  const monthlyTax = vy.taxes.total / 12;
-  const monthlyCashSavings = Math.max(0, vy.discretionarySavings / 12);
-  const monthly401k = vy.total401k / 12;
-  const monthlyIRA = vy.totalIRA / 12;
-  const monthlyMatch = vy.totalMatch / 12;
-  const bLabels = ['Housing', 'Taxes', 'Cash Savings', '401k', 'IRA'];
-  const bData = [vy.monthlyHousing, monthlyTax, monthlyCashSavings, monthly401k, monthlyIRA];
-  const bColors = [c.amber, c.target, c.green, '#4ade80', '#86efac'];
-  if (monthlyMatch > 0) {
-    bLabels.push('Match');
-    bData.push(monthlyMatch);
-    bColors.push('#bbf7d0');
+  const relocLabel = (RELOC_PRESETS[p.relocDestination] || {}).label || p.relocDestination;
+  let bLabels, bData, bColors;
+  if (vy.isRelocated) {
+    const relocHealthcareM = p.relocHealthcare * Math.pow(1 + p.inflation / 100, vy.year);
+    const relocLivingM = vy.annualOther / 12;
+    if (!vy.retired && vy.grossIncome > 0) {
+      const monthlySavings = Math.max(0, vy.discretionarySavings / 12);
+      bLabels = ['Living (' + relocLabel + ')', 'Healthcare'];
+      bData = [relocLivingM, relocHealthcareM];
+      bColors = [c.accent, c.target];
+      if (p.relocDisposition === 'rent' && p.houseBuyAge < 999 && (p.age1 + vy.year) >= p.houseBuyAge) {
+        bLabels.push('US Mortgage');
+        bData.push(r.housing.total);
+        bColors.push(c.amber);
+      }
+      if (p.numKids > 0 && vy.kidsCost > 0) {
+        bLabels.push('Kids');
+        bData.push(vy.kidsCost / 12);
+        bColors.push(c.purple);
+      }
+      if (monthlySavings > 0) {
+        bLabels.push('Savings');
+        bData.push(monthlySavings);
+        bColors.push(c.green);
+      }
+    } else {
+      bLabels = ['Living (' + relocLabel + ')', 'Healthcare'];
+      bData = [relocLivingM, relocHealthcareM];
+      bColors = [c.accent, c.target];
+      if (p.relocDisposition === 'rent' && p.houseBuyAge < 999 && (p.age1 + vy.year) >= p.houseBuyAge) {
+        bLabels.push('US Mortgage');
+        bData.push(r.housing.total);
+        bColors.push(c.amber);
+      }
+      if (p.numKids > 0 && vy.kidsCost > 0) {
+        bLabels.push('Kids');
+        bData.push(vy.kidsCost / 12);
+        bColors.push(c.purple);
+      }
+    }
+  } else {
+    const monthlyTax = vy.taxes.total / 12;
+    const monthlyCashSavings = Math.max(0, vy.discretionarySavings / 12);
+    const monthly401k = vy.total401k / 12;
+    const monthlyIRA = vy.totalIRA / 12;
+    const monthlyMatch = vy.totalMatch / 12;
+    bLabels = ['Housing', 'Taxes', 'Cash Savings', '401k', 'IRA'];
+    bData = [vy.monthlyHousing, monthlyTax, monthlyCashSavings, monthly401k, monthlyIRA];
+    bColors = [c.amber, c.target, c.green, '#4ade80', '#86efac'];
+    if (monthlyMatch > 0) {
+      bLabels.push('Match');
+      bData.push(monthlyMatch);
+      bColors.push('#bbf7d0');
+    }
+    if (p.numKids > 0 && vy.kidsCost > 0) {
+      bLabels.push('Kids');
+      bData.push(vy.kidsCost / 12);
+      bColors.push(c.purple);
+    }
+    bLabels.push('Other');
+    bData.push(vy.annualOther / 12);
+    bColors.push(c.accent);
   }
-  if (p.numKids > 0 && vy.kidsCost > 0) {
-    bLabels.push('Kids');
-    bData.push(vy.kidsCost / 12);
-    bColors.push(c.purple);
-  }
-  bLabels.push('Other');
-  bData.push(vy.annualOther / 12);
-  bColors.push(c.accent);
 
   budgetChart.data.labels = bLabels;
   budgetChart.data.datasets[0].data = bData;
@@ -1710,27 +1913,50 @@ function updateDashboard() {
 
   // Breakdown table
   const el = document.getElementById('breakdownRows');
-  const rows = [
-    { label: 'Cash Salaries', value: vy.cash1 + vy.cash2, color: c.green },
-    { label: 'RSU Vesting (You)', value: vy.rsu1, color: c.green },
-    { label: 'RSU Vesting (Partner)', value: vy.rsu2, color: c.green },
-    { label: 'Federal Tax', value: -vy.taxes.federal, color: c.target },
-    { label: 'CA State Tax', value: -vy.taxes.state, color: c.target },
-    { label: 'FICA', value: -vy.taxes.fica, color: c.target },
-    { label: '401k Contributions', value: -vy.total401k, color: c.accent },
-    { label: 'IRA Contributions', value: -vy.totalIRA, color: c.accent },
-  ];
-  if (vy.sideIncome > 0) rows.splice(3, 0, { label: 'Side Income', value: vy.sideIncome, color: c.green });
-  if (vy.taxes.seTax > 0) rows.push({ label: 'SE Tax', value: -vy.taxes.seTax, color: c.target });
-  if (vy.totalMatch > 0) rows.push({ label: 'Employer Match', value: vy.totalMatch, color: c.green });
-  const buyYear = p.houseBuyAge - p.age1;
-  if (viewYear === buyYear && p.houseBuyAge < 999) {
-    rows.push({ label: 'Down Payment (' + p.downPct + '% of home)', value: -(p.homeValue * p.downPct / 100), color: c.amber });
+  let rows;
+  if (vy.isRelocated) {
+    rows = [];
+    if (!vy.retired && vy.grossIncome > 0) {
+      rows.push({ label: 'Local Income (' + relocLabel + ')', value: vy.grossIncome, color: c.green });
+    }
+    if (vy.houseSoldProceeds > 0) {
+      rows.push({ label: 'House Sale Proceeds', value: vy.houseSoldProceeds, color: c.green });
+    }
+    if (vy.relocRentalIncome > 0) {
+      rows.push({ label: 'Rental Income (house)', value: vy.relocRentalIncome, color: c.green });
+    }
+    if (p.relocDisposition === 'rent' && p.houseBuyAge < 999 && (p.age1 + vy.year) >= p.houseBuyAge) {
+      rows.push({ label: 'US Mortgage (P&I+tax+ins+HOA)', value: -r.housing.total * 12, color: c.amber });
+    }
+    rows.push({ label: 'Living Expenses (' + relocLabel + ')', value: -vy.annualOther, color: c.muted });
+    const relocHealthcareY = p.relocHealthcare * 12 * Math.pow(1 + p.inflation / 100, vy.year);
+    rows.push({ label: 'Healthcare (' + relocLabel + ')', value: -relocHealthcareY, color: c.target });
+    if (p.numKids > 0 && vy.kidsCost > 0) rows.push({ label: `Kids (${p.numKids})`, value: -vy.kidsCost, color: c.purple });
+    const totalLabel = vy.retired ? 'Net Withdrawal' : 'Net Savings';
+    rows.push({ label: totalLabel, value: vy.totalInvested, color: vy.totalInvested >= 0 ? c.green : c.target, isTotal: true });
+  } else {
+    rows = [
+      { label: 'Cash Salaries', value: vy.cash1 + vy.cash2, color: c.green },
+      { label: 'RSU Vesting (You)', value: vy.rsu1, color: c.green },
+      { label: 'RSU Vesting (Partner)', value: vy.rsu2, color: c.green },
+      { label: 'Federal Tax', value: -vy.taxes.federal, color: c.target },
+      { label: 'CA State Tax', value: -vy.taxes.state, color: c.target },
+      { label: 'FICA', value: -vy.taxes.fica, color: c.target },
+      { label: '401k Contributions', value: -vy.total401k, color: c.accent },
+      { label: 'IRA Contributions', value: -vy.totalIRA, color: c.accent },
+    ];
+    if (vy.sideIncome > 0) rows.splice(3, 0, { label: 'Side Income', value: vy.sideIncome, color: c.green });
+    if (vy.taxes.seTax > 0) rows.push({ label: 'SE Tax', value: -vy.taxes.seTax, color: c.target });
+    if (vy.totalMatch > 0) rows.push({ label: 'Employer Match', value: vy.totalMatch, color: c.green });
+    const buyYear = p.houseBuyAge - p.age1;
+    if (viewYear === buyYear && p.houseBuyAge < 999) {
+      rows.push({ label: 'Down Payment (' + p.downPct + '% of home)', value: -(p.homeValue * p.downPct / 100), color: c.amber });
+    }
+    rows.push({ label: vy.ownsHome ? 'Housing (mortgage+tax+ins+HOA)' : 'Housing (rent)', value: -vy.monthlyHousing * 12, color: c.amber });
+    if (p.numKids > 0 && vy.kidsCost > 0) rows.push({ label: `Kids (${p.numKids})`, value: -vy.kidsCost, color: c.purple });
+    rows.push({ label: 'Other Expenses', value: -vy.annualOther, color: c.muted });
+    rows.push({ label: 'Net Savings', value: vy.totalInvested, color: vy.totalInvested >= 0 ? c.green : c.target, isTotal: true });
   }
-  rows.push({ label: vy.ownsHome ? 'Housing (mortgage+tax+ins+HOA)' : 'Housing (rent)', value: -vy.monthlyHousing * 12, color: c.amber });
-  if (p.numKids > 0 && vy.kidsCost > 0) rows.push({ label: `Kids (${p.numKids})`, value: -vy.kidsCost, color: c.purple });
-  rows.push({ label: 'Other Expenses', value: -vy.annualOther, color: c.muted });
-  rows.push({ label: 'Net Savings', value: vy.totalInvested, color: vy.totalInvested >= 0 ? c.green : c.target, isTotal: true });
 
   el.innerHTML = rows.map(row => {
     const cls = row.isTotal ? ' total' : '';
@@ -1751,10 +1977,11 @@ const PARAM_KEYS = [
   'monthlyRent','rentForever','houseBuyAge','homeValue','downPct','mortgageRate','hoa',
   'numKids','firstKidAge','schoolType','daycareCost','otherExpenses','otherKidsBump',
   'contrib401k','contribIRA','employerMatch','salaryGrowth','stockGrowth',
-  'annualReturn','swr','inflation','healthcareCost','withdrawalTax','quitAtFire'
+  'annualReturn','swr','inflation','healthcareCost','withdrawalTax','quitAtFire',
+  'relocEnabled','relocAge','relocDestination','relocMonthly','relocHealthcare','relocIncome1','relocIncome2','relocDisposition','relocRental'
 ];
 
-const MONEY_IDS = ['savings','cash1','rsu1','cash2','rsu2','sideIncome','monthlyRent','homeValue','hoa','daycareCost','otherExpenses','otherKidsBump','healthcareCost'];
+const MONEY_IDS = ['savings','cash1','rsu1','cash2','rsu2','sideIncome','monthlyRent','homeValue','hoa','daycareCost','otherExpenses','otherKidsBump','healthcareCost','relocMonthly','relocHealthcare','relocIncome1','relocIncome2','relocRental'];
 
 function serializeParams() {
   const params = new URLSearchParams();
@@ -1832,6 +2059,15 @@ function paramsObjectFromString(qs) {
   obj.rentForever = params.get('rentForever') === 'true';
   obj.quitAtFire = params.get('quitAtFire') === 'true';
   if (obj.rentForever) obj.houseBuyAge = 999;
+  obj.relocEnabled = params.get('relocEnabled') === 'true';
+  obj.relocAge = +(params.get('relocAge') || 45);
+  obj.relocDestination = params.get('relocDestination') || 'china';
+  obj.relocMonthly = +(params.get('relocMonthly') || 3000);
+  obj.relocHealthcare = +(params.get('relocHealthcare') || 300);
+  obj.relocIncome1 = +(params.get('relocIncome1') || 3000);
+  obj.relocIncome2 = +(params.get('relocIncome2') || 3000);
+  obj.relocDisposition = params.get('relocDisposition') || 'sell';
+  obj.relocRental = +(params.get('relocRental') || 4000);
   return obj;
 }
 
